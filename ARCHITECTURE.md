@@ -89,6 +89,8 @@ Frontend rules:
   publishing without marking the release as GitHub latest.
 - `.github/workflows/docker-publish.yml` publishes the server image.
 - `.github/workflows/npm-publish.yml` publishes the `hermes-web-ui` package.
+- Release matrix targets keep `fail_on_unmatched_files: true` where
+  platform-specific artifact lists make the expectation explicit.
 
 ## Hermes Runtime
 
