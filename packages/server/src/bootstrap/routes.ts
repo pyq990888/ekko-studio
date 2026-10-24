@@ -9,7 +9,6 @@ import { apiDocsRoutes } from '../modules/studio'
 import { healthRoutes } from './health'
 import { updateRoutes } from './update'
 import { themeRoutes } from '../modules/studio/routes/theme'
-import { appConnectionRoutes, appRelayRoutes } from './app-relay'
 import {
   claudeCodeProxyRoutes,
   codexProxyRoutes,
@@ -80,13 +79,11 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
 
   // --- Protected routes (auth required) ---
   app.use(authProtectedRoutes.routes())
-  app.use(appConnectionRoutes.routes())
   app.use(uploadRoutes.routes())
   app.use(updateRoutes.routes())           // Must be before proxy (proxy catch-all matches everything)
   app.use(codingAgentRoutes.routes())
   app.use(agentStatusRoutes.routes())
   app.use(themeRoutes.routes())
-  app.use(appRelayRoutes.routes())
   app.use(sessionRoutes.routes())
   app.use(profileRoutes.routes())
   app.use(ekkoMemoryRoutes.routes())

@@ -1,5 +1,4 @@
 import { registerAppEventState, publishAppState, stateEvent } from '../services/webhooks/app-event-state'
-import { bindLegacyAppEvents } from '../services/webhooks/legacy-app-events'
 import { publishDomainEvent } from '../services/webhooks/domain-events'
 import type { Server, Socket } from 'socket.io'
 import { authenticateUserToken, isAuthEnabled, type AuthenticatedUser } from '../public/auth'
@@ -112,10 +111,6 @@ export class WorkflowSocketServer {
   }
 
   private onConnection(socket: Socket): void {
-    bindLegacyAppEvents(socket, 'workflow', event => {
-      const user = socket.data.user as AuthenticatedUser | undefined
-      return Boolean(user && canAccessProfile(user, event.profile))
-    })
     socket.on('workflows.list', (request: WorkflowListRequest | Ack<{ workflows: WorkflowRecord[] }> | undefined, ack?: Ack<{ workflows: WorkflowRecord[] }>) => {
       const callback = typeof request === 'function' ? request : ack
       const payload = typeof request === 'function' ? {} : request || {}

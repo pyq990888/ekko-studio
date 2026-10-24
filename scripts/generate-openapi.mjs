@@ -82,8 +82,6 @@ const tagMappings = {
   'modules/studio/routes/update.ts': { name: 'Update', description: 'Studio self-update management' },
   'modules/studio/routes/upload.ts': { name: 'Studio Files', description: 'Studio runtime file upload' },
   'modules/studio/routes/auth.ts': { name: 'Auth', description: 'Authentication management' },
-  'modules/studio/routes/app-connections.ts': { name: 'App Connections', description: 'Mobile App authorization and connection management' },
-  'modules/studio/routes/app-relay.ts': { name: 'App Relay', description: 'Mobile App cloud relay route and connection management' },
   'modules/studio/routes/theme.ts': { name: 'Theme', description: 'Per-user appearance settings and background image' },
   'modules/studio/routes/api-docs.ts': { name: 'API Docs', description: 'OpenAPI route catalog' },
   'modules/studio/routes/agent-status.ts': { name: 'Agent Status', description: 'In-memory Agent installation, version, and source status' },

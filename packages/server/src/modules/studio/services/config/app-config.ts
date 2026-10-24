@@ -46,11 +46,6 @@ export function normalizeGatewayAutoStartConfig(value: unknown): GatewayAutoStar
 }
 
 export interface AppConfig {
-  // Defaults on for supported gateways. Explicit false opts out for old gateways; persisted in appHome/config.json.
-  liveActivityRelevanceEnabled?: boolean
-  // Network entry used by Studio's cloud App Relay connection.
-  appRelayRoute?: 'official' | 'cloudflare'
-
   // Whether GitHub Copilot has been explicitly added by the user in web-ui.
   // Default false: even when COPILOT_GITHUB_TOKEN / gh-cli / apps.json can
   // resolve a token, the Copilot provider is hidden until the user opts in

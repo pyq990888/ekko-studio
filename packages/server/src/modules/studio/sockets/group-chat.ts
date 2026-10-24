@@ -1,12 +1,8 @@
 import { getGroupMessageSelection, deleteGroupMessages, groupMessageDeletionError } from '../repositories/group-message-deletion'
 import { registerAppEventState, publishAppState, stateEvent, planStateEvent } from '../services/webhooks/app-event-state'
 import type { BusinessEvent } from '../services/webhooks/business-events'
-import { authenticatedPushActor, prepareRunPushSnapshot } from '../services/notifications/push-registration'
-import { bindRunPushTarget, findPushRunLink, linkPushRun, pushRunTransaction, type PushActor } from '../repositories/run-push-store'
 import { parseGroupTaskPlan } from '../services/group-chat/task-plan'
 import { parseGroupRunUsage } from '../services/group-chat/run-usage'
-import { bindLegacyAppEvents } from '../services/webhooks/legacy-app-events'
-import { registerGroupEventAccess } from '../services/webhooks/app-events'
 import { publishGroupMessage, publishGroupInteraction } from '../services/webhooks/domain-events'
 import { Server, Socket, Namespace } from 'socket.io'
 import type { Server as HttpServer } from 'http'
@@ -99,7 +95,6 @@ function buildOutboundGroupMessage(message: ChatMessage): ChatMessage {
 }
 
 type IncomingGroupChatMessage = Omit<Partial<ChatMessage>, 'content'> & {
-    push_snapshot?: unknown
     roomId?: string
     content: string | Array<Record<string, unknown>>
     id?: string
@@ -3441,14 +3436,6 @@ export class GroupChatServer {
         }
         this.nsp = this.io.of('/group-chat')
         const eventSocket = (user: AuthenticatedUser) => ({ id: '', data: { authUser: user } } as unknown as Socket)
-        const removeGroupEventAccess = registerGroupEventAccess({ canReceive: (user, roomId, event) => {
-            const socket = eventSocket(user)
-            if (!this.canSocketReceiveRoomNotification(socket, roomId)) return false
-            if (event?.type.startsWith('group.approval.')) return this.canSocketHandleAgentApproval(socket,
-                { roomId, ownerMemberId: String(event.payload.owner_member_id || '') })
-            if (event?.type.startsWith('group.clarification.')) return this.canSocketManageRoom(socket, roomId)
-            return true
-        } })
         const removeGroupState = registerAppEventState('group', (user) => {
             const result: BusinessEvent[] = []
             const socket = eventSocket(user)
@@ -3478,7 +3465,7 @@ export class GroupChatServer {
             }
             return result
         })
-        for (const server of servers) server.once('close', () => { removeGroupEventAccess(); removeGroupState() })
+        for (const server of servers) server.once('close', () => { removeGroupState() })
         this.nsp.use(this.authMiddleware.bind(this))
         this.nsp.on('connection', this.onConnection.bind(this))
 
@@ -4188,15 +4175,12 @@ export class GroupChatServer {
             if (!user) return next(new Error('Unauthorized'))
             socket.data.authUser = user
         }
-        try { socket.data.pushActor = await authenticatedPushActor(String(token)) }
-        catch { return next(new Error('App device authentication failed')) }
         next()
     }
 
     // ─── Connection ─────────────────────────────────────────────
 
     private onConnection(socket: Socket): void {
-        bindLegacyAppEvents(socket, 'group', event => Boolean(event.subject.room_id && this.canSocketObserveRoom(socket, event.subject.room_id)))
         const auth = socket.handshake.auth as { userId?: string; name?: string; description?: string; source?: string; agentSocketSecret?: string; authUserId?: number }
         const requestedSource = auth.source === 'agent' && auth.agentSocketSecret === GROUP_CHAT_AGENT_SOCKET_SECRET ? 'agent' : 'human'
         const authenticatedUser = socket.data.authUser as AuthenticatedUser | undefined
@@ -4961,23 +4945,9 @@ export class GroupChatServer {
 
         const isAgentReply = msg.role === 'assistant' && member?.source === 'agent'
         const trustedMetadata = isAgentReply ? this.consumeTrustedAgentMessageMetadata(roomId, msg.id) : null
-        const pushActor = isHumanMessage ? socket.data?.pushActor as PushActor | null : null
         let saved: ReturnType<ChatStorage['saveMessageAndRefreshRoom']>
         try {
-            const save = () => {
-                if (pushActor) {
-                    const target = bindRunPushTarget({ kind: 'group', profile: this.storage.getRoom(roomId)?.summaryProfile || 'default', runId: msg.id }, roomId, pushActor, {
-                        ciphertext: prepareRunPushSnapshot(pushActor, data.push_snapshot),
-                        platform: String((data.push_snapshot as any)?.platform || 'unknown'),
-                    })
-                    linkPushRun('group_root', roomId, msg.id, target)
-                } else if (trustedMetadata?.handoffChainId) {
-                    const root = findPushRunLink('group_root', roomId, trustedMetadata.handoffChainId)
-                    if (root) linkPushRun('group_message', roomId, msg.id, root)
-                }
-                return this.storage.saveMessageAndRefreshRoom(msg)
-            }
-            saved = pushActor || trustedMetadata ? pushRunTransaction(save) : save()
+            saved = this.storage.saveMessageAndRefreshRoom(msg)
         }
         catch (error) {
             logger.warn(error, '[GroupChat] message persistence failed')

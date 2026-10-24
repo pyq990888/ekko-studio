@@ -1,9 +1,7 @@
 export {
   authenticateUserToken,
-  inspectAppUserToken,
   getUserJwtExpiresSeconds,
   isAuthEnabled,
-  issueAppJwt,
   issueModelRunJwt,
   issueUserJwt,
   requireAdmin,

@@ -4,7 +4,6 @@ import { shutdownDshPluginOperations } from '../modules/coding-agents/services/d
 import { forceStopManagedGateways, shutdownManagedGateways } from '../modules/hermes/services/gateway/runner'
 import { closeDb } from '../modules/studio/infrastructure/database'
 import { logger } from '../modules/studio/public/logging'
-import { stopAppRelayClient } from '../modules/studio/services/app-relay/client'
 import { closeGlobalEkkoAgent } from '../modules/ekko/services/manager'
 import { stopChatWebhookDispatcher } from '../modules/studio/services/webhooks'
 import { stopPreviewRuntime } from './update'
@@ -160,8 +159,6 @@ export function createShutdownHandler(
         } else if (agentBridgeManager) {
           logger.info('Leaving agent bridge running across Web UI shutdown')
         }
-
-        await runShutdownStep('App relay clients', () => stopAppRelayClient())
 
         // Disconnect feature agents before closing Socket.IO, then close the
         // bootstrap-owned hub exactly once. A standalone GroupChatServer still

@@ -33,12 +33,6 @@ import { ensureProfileGatewaysRunning } from '../modules/hermes/services/gateway
 import { runRegisteredStartupTasks } from './startup-tasks'
 import { refreshConfiguredProviderModelCatalogsInBackground } from '../modules/hermes/services/providers/model-catalog-cache'
 import { refreshModelCatalog } from '../modules/studio/public/model-catalog'
-import { startLocalAppRelayServer } from '../modules/studio/services/app-relay/server'
-import {
-  hasPendingCloudAppConnectionRevocations,
-  listAppConnections,
-} from '../modules/studio/repositories/app-connections-store'
-import { ensureAppRelayHostClient } from '../modules/studio/services/app-relay/connection'
 import { setupGlobalEkkoAgent } from './ekko'
 import { injectManagedEkkoMcpServers } from '../modules/ekko/services/mcp'
 import { WorkflowSocketServer } from '../modules/studio/sockets/workflow'
@@ -153,12 +147,6 @@ async function listenWithFallback(app: Koa, port: number, host?: string): Promis
   console.log(`[bootstrap] listening on ${bindHost}:${port}`)
   const primary = await listen(app, port, bindHost)
   return { primary, servers: [primary] }
-}
-
-function getLoopbackBaseUrl(httpServer: any): string {
-  const address = httpServer?.address?.()
-  const port = typeof address === 'object' && address?.port ? address.port : config.port
-  return `http://127.0.0.1:${port}`
 }
 
 function isDesktopRuntime(): boolean {
@@ -545,8 +533,6 @@ export async function bootstrap() {
   })
   console.log('[bootstrap] terminal + kanban websocket setup')
 
-  const loopbackBaseUrl = getLoopbackBaseUrl(server)
-
   // Bootstrap owns the shared Socket.IO transport; feature modules only attach namespaces.
   const hub = createRealtimeHub(servers)
   realtimeHub = hub
@@ -566,14 +552,6 @@ export async function bootstrap() {
   setChatRunServer(chatRunServer)
   activeGroupChatServer.setChatRunService(chatRunServer)
   chatRunServer.init()
-  startLocalAppRelayServer(hub.io, { localBaseUrl: loopbackBaseUrl })
-  console.log('[bootstrap] local App relay server ready')
-  if (
-    listAppConnections().some(connection => connection.connection_type === 'cloud')
-    || hasPendingCloudAppConnectionRevocations()
-  ) {
-    void ensureAppRelayHostClient().catch(err => logger.warn(err, '[app-relay] cloud host restore failed'))
-  }
   const groupAgentOutboundRelayManager = getGroupAgentOutboundRelayManager(
     () => activeGroupChatServer.getChatRunService(),
   )
