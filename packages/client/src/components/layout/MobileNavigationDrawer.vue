@@ -103,10 +103,7 @@ const { t } = useI18n()
   }
 
   :deep(.session-close-btn),
-  :deep(.workflow-sidebar-close),
   :deep(.collapse-btn),
-  :deep(.hermes-config-collapse),
-  :deep(.ekko-config-collapse),
-  :deep(.coding-agent-config-collapse) { display: none; }
+  :deep(.hermes-config-collapse) { display: none; }
 }
 </style>

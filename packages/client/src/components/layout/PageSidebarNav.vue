@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { deploymentUrl } from '@/utils/deployment-url'
 import { computed } from 'vue'
 import { NTooltip } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -9,7 +8,7 @@ import { useSessionSearch } from '@/composables/useSessionSearch'
 import DesktopUpdateDownloadTab from './DesktopUpdateDownloadTab.vue'
 import { useNavigationRail } from '@/composables/useNavigationRail'
 
-type ActiveSection = 'chat' | 'history' | 'connections' | 'agents' | 'models' | 'usage' | 'apiRelay' | 'group' | 'global' | 'workflow'
+type ActiveSection = 'chat' | 'history' | 'agents' | 'models' | 'usage'
 
 const props = defineProps<{
   active: ActiveSection
@@ -38,11 +37,6 @@ function openHistory() {
   void router.push({ name: 'hermes.history' })
 }
 
-function openConnections() {
-  if (props.active === 'connections') return
-  void router.push({ name: 'hermes.connections' })
-}
-
 function openAgentManager() {
   if (props.active === 'agents') return
   void router.push({ name: 'hermes.agentManager' })
@@ -56,21 +50,6 @@ function openModels() {
 function openUsage() {
   if (props.active === 'usage') return
   void router.push({ name: 'hermes.usage' })
-}
-
-function openGroupChat() {
-  if (props.active === 'group') return
-  void router.push({ name: 'hermes.groupChat' })
-}
-
-function openWorkflow() {
-  if (props.active === 'workflow') return
-  void router.push({ name: 'hermes.workflow' })
-}
-
-function openApiRelay() {
-  if (props.active === 'apiRelay') return
-  void router.push({ name: 'hermes.apiRelay' })
 }
 </script>
 
@@ -118,29 +97,6 @@ function openApiRelay() {
           <slot name="actions" />
         </div>
       </div>
-      <button
-        v-if="!hasNavigationRail"
-        class="page-sidebar-tab"
-        :class="{ active: active === 'connections' }"
-        type="button"
-        :aria-current="active === 'connections' ? 'page' : undefined"
-        @click="openConnections"
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 4h14a1 1 0 0 1 1 1v4M3 4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h9M7 16v4M5 20h7M15 9h6a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1M17 18h2" />
-        </svg>
-        <span>{{ t('sidebar.connections') }}</span>
-      </button>
       <button
         v-if="canManageAgents && !hasNavigationRail"
         class="page-sidebar-tab"
@@ -198,12 +154,8 @@ function openApiRelay() {
         </svg>
         <span>{{ t('sidebar.usage') }}</span>
       </button>
-      <button v-if="!hasNavigationRail" class="page-sidebar-tab" :class="{ active: active === 'apiRelay' }" type="button" :aria-current="active === 'apiRelay' ? 'page' : undefined" @click="openApiRelay">
-        <img class="api-relay-logo" :src="deploymentUrl('/relay-logo.png')" width="18" height="18" alt="" aria-hidden="true" />
-        <span>{{ t('sidebar.apiRelay') }}</span>
-      </button>
     </div>
-    <div v-if="!hasNavigationRail" class="conversation-switch conversation-switch--four" role="tablist" aria-label="Conversation type">
+    <div v-if="!hasNavigationRail" class="conversation-switch" role="tablist" aria-label="Conversation type">
       <NTooltip trigger="hover" placement="top">
         <template #trigger>
           <button
@@ -221,49 +173,6 @@ function openApiRelay() {
           </button>
         </template>
         {{ t('sidebar.singleChat') }}
-      </NTooltip>
-      <NTooltip trigger="hover" placement="top">
-        <template #trigger>
-          <button
-            class="conversation-switch-tab"
-            :class="{ active: active === 'group' }"
-            type="button"
-            role="tab"
-            :aria-label="t('sidebar.groupChat')"
-            :aria-selected="active === 'group'"
-            @click="openGroupChat"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </button>
-        </template>
-        {{ t('sidebar.groupChat') }}
-      </NTooltip>
-      <NTooltip trigger="hover" placement="top">
-        <template #trigger>
-          <button
-            class="conversation-switch-tab"
-            :class="{ active: active === 'workflow' }"
-            type="button"
-            role="tab"
-            :aria-label="t('sidebar.workflow')"
-            :aria-selected="active === 'workflow'"
-            @click="openWorkflow"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="5" cy="12" r="3" />
-              <circle cx="19" cy="6" r="3" />
-              <circle cx="19" cy="18" r="3" />
-              <path d="M8 12h3a4 4 0 0 0 4-4V6" />
-              <path d="M8 12h3a4 4 0 0 1 4 4v2" />
-            </svg>
-          </button>
-        </template>
-        {{ t('sidebar.workflow') }}
       </NTooltip>
       <NTooltip trigger="hover" placement="top">
         <template #trigger>
@@ -379,10 +288,6 @@ function openApiRelay() {
   background: rgba(var(--accent-primary-rgb), 0.05);
 }
 
-.conversation-switch--four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 .conversation-switch-tab {
   width: 100%;
   min-width: 0;
@@ -414,7 +319,7 @@ function openApiRelay() {
   }
 }
 
-:global(.dark .conversation-switch--four .conversation-switch-tab.active) {
+:global(.dark .conversation-switch .conversation-switch-tab.active) {
   background: var(--theme-card-bg, $bg-card-hover);
   color: $accent-primary;
   box-shadow:
