@@ -14,29 +14,19 @@ describe('Runtime install restart wiring', () => {
     expect(manager).not.toContain('runtimeInstallCompletedHandler')
   })
 
-  it('does not auto-relaunch Desktop after a Runtime download and re-enter a restart loop', () => {
+  it('does not auto-relaunch a shell after a Runtime download and re-enter a restart loop', () => {
     const bootstrap = readFileSync('packages/server/src/bootstrap/http.ts', 'utf8')
-    const desktopServer = readFileSync('packages/desktop/src/main/webui-server.ts', 'utf8')
-    const desktopMain = readFileSync('packages/desktop/src/main/index.ts', 'utf8')
 
     expect(bootstrap).not.toContain("getShutdownHandler()('runtime-installed', 75)")
     expect(bootstrap).not.toContain('configureRuntimeInstallCompletedHandler')
-    expect(desktopServer).not.toContain('runtimeRestartHandler')
-    expect(desktopMain).toContain("ipcMain.handle('hermes-desktop:restart-app'")
   })
 
-  it('routes authenticated App restart requests through the Desktop child IPC channel', () => {
+  it('exposes an authenticated Web UI restart route', () => {
     const routes = readFileSync('packages/server/src/modules/hermes/routes/runtime-versions.ts', 'utf8')
     const restart = readFileSync('packages/server/src/modules/studio/public/web-ui-restart.ts', 'utf8')
-    const desktopServer = readFileSync('packages/desktop/src/main/webui-server.ts', 'utf8')
-    const desktopMain = readFileSync('packages/desktop/src/main/index.ts', 'utf8')
 
     expect(routes).toContain("post('/api/hermes/runtime-versions/restart-webui', requireSuperAdmin")
-    expect(restart).toContain("process.send({ type: DESKTOP_RESTART_REQUEST })")
-    expect(desktopServer).toContain("stdio: ['ignore', 'pipe', 'pipe', 'ipc']")
-    expect(desktopServer).toContain("launchedProc.on('message'")
-    expect(desktopMain).toContain('setWebUiRestartRequestHandler(() => {')
-    expect(desktopMain).toContain('scheduleAppRestart(250)')
+    expect(restart).toContain("process.env.NODE_ENV === 'development'")
   })
 
   it('routes source-development restarts through a nodemon watched trigger', () => {

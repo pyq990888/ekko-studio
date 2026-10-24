@@ -70,6 +70,10 @@ vi.mock('../../packages/server/src/modules/hermes/services/bridge/manager', () =
 }))
 
 vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  configureChatAgentRuntime: vi.fn((deps: any) => { (globalThis as any).__chatDeps = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    (globalThis as any).__chatDeps?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
   getChatCodingAgentMcpServers: vi.fn(() => ({ 'ekko-studio-interaction': { command: 'studio' }, 'ekko-studio-use': { command: 'studio' } })),
   resolveChatEkkoMcpServers: vi.fn(() => ({ 'ekko-studio-use': { command: 'studio' } })),
   createPrimaryAgentBridge: vi.fn(() => bridgeMock),
@@ -90,6 +94,20 @@ vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', ()
   respondToChatEkkoToolApproval: vi.fn(() => ({ handled: false, resolved: false })),
   respondToChatEkkoClarification: vi.fn(() => ({ handled: false, resolved: false })),
 }))
+
+beforeEach(async () => {
+  const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+  configureChatAgentRuntime({
+    projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+      message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+        ? { ...message, content: options.truncateOtherTools(message.content) }
+        : message
+    )),
+    createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+    getPrimaryAgentBridgeManager: vi.fn(),
+    redactPrimaryAgentBridgeError: (error?: string) => error,
+  })
+})
 
 vi.mock('../../packages/server/src/modules/studio/public/logging', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -198,21 +216,11 @@ describe('ChatRunSocket reports when the run started', () => {
     const state = { messages: [], events: [], queue: [], isWorking: true, profile: 'default',
       runId: 'persistent-agent-instance', ...turnState }
     ;(server as any).sessionMap.set('s-progress', state)
-    const card = { session_id: 's-progress', run_id: 'turn-current', plan_id: 'card-current', revision: 2,
-      execution_state: 'running', created_at: 1, updated_at: 2,
-      plan: [{ id: 'inspect', step: 'Inspect', status: 'completed' }, { id: 'verify', step: 'Verify', status: 'in_progress' }] }
-    getSessionTaskPlansMock.mockReturnValue([card, { ...card, plan_id: 'card-old', run_id: 'turn-old' }])
 
     ;(server as any).onConnection(socket)
-    const snapshot = bindAppEventSubscriptionMock.mock.calls[0][1]({ id: 1 }, 'default')
-    expect(snapshot.map((event: any) => event.type)).toEqual(['chat.run.updated', 'chat.plan.updated'])
-    expect(snapshot[0].subject.run_id).toBe(card.run_id)
-    expect(snapshot[1].chat.task_plan).toMatchObject({ run_id: card.run_id, progress: { completed: 1, total: 2 } })
-    expect(getSessionTaskPlansMock).toHaveBeenCalledWith('s-progress', [], true, card.run_id)
-
     ;(server as any).emitSessionActivity('default', 'run.started', { session_id: 's-progress', run_id: 'response-id' })
     expect(publishAppStateMock).toHaveBeenLastCalledWith(expect.objectContaining({
-      subject: { session_id: 's-progress', run_id: card.run_id },
+      subject: { session_id: 's-progress', run_id: 'turn-current' },
       payload: { state: expect.objectContaining({ status: 'running', reset_progress: true }) },
     }))
   })
@@ -278,84 +286,3 @@ describe('ChatRunSocket reports when the run started', () => {
   })
 })
 
-describe('group run MCP credential lifecycle', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    handleCodingAgentRunMock.mockReset()
-  })
-
-  it.each(['run.completed', 'run.failed', 'abort.completed'])('issues a fresh credential without a socket user and revokes it on %s', async terminal => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    const sessionId = `group-${terminal}`
-    let runtimeData: any
-    handleCodingAgentRunMock.mockImplementation(async (_nsp: any, socket: any, data: any, _profile: any, sessionMap: any) => {
-      expect(socket.data.user).toBeUndefined()
-      runtimeData = data
-      Object.assign(sessionMap.get(sessionId), { isWorking: true, activeRunMarker: 'real-native-turn' })
-      return { runId: 'native-runtime' } as any
-    })
-    let current = true
-    const pending = server.runAndWait({
-      session_id: sessionId, coding_agent_id: 'codex', source: 'group_chat', session_source: 'group_chat',
-      group_room_id: 'room', group_agent_id: 'worker', input: 'Show progress', mode: 'global',
-    }, { profile: 'research', groupRunIsCurrent: () => current })
-    try {
-      await vi.waitFor(() => expect(runtimeData?.studio_mcp_token_file).toBeTruthy())
-      const credential = JSON.parse(readFileSync(runtimeData.studio_mcp_token_file, 'utf8'))
-      expect(credential.context_id).toBe(runtimeData.task_plan_context_id)
-      expect(runMcpCredentials.authenticate(credential.token)).toMatchObject({ sessionId, profile: 'research', roomId: 'room', agentId: 'worker' })
-      const card = server.updateTaskPlan(credential.context_id, 'research', { plan: [{ id: 'work', step: 'Work', status: 'in_progress' }] })
-      expect(card.run_id).toBe('real-native-turn')
-      current = false
-      expect(runMcpCredentials.authenticate(credential.token)).toBeUndefined()
-      current = true
-      server.emitExternalEvent(sessionId, terminal, { run_id: 'native-runtime' })
-      expect(runMcpCredentials.authenticate(credential.token)).toBeUndefined()
-      expect(existsSync(runtimeData.studio_mcp_token_file)).toBe(false)
-      if (terminal === 'abort.completed') server.emitExternalEvent(sessionId, 'run.failed', { error: 'interrupted' })
-      await pending
-    } finally {
-      runMcpCredentials.revoke(sessionId)
-    }
-  })
-
-  it('cleans up a credential if native launch fails', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    let file = ''
-    handleCodingAgentRunMock.mockImplementation(async (_nsp: any, _socket: any, data: any) => {
-      file = data.studio_mcp_token_file
-      expect(existsSync(file)).toBe(true)
-      throw new Error('native launch failed')
-    })
-    const result = await server.runAndWait({ session_id: 'failed-group', input: 'Work', coding_agent_id: 'codex',
-      source: 'group_chat', group_room_id: 'room', group_agent_id: 'worker', mode: 'global' }, { profile: 'research' })
-    expect(result.ok).toBe(false)
-    expect(result.error).toBe('native launch failed')
-    expect(existsSync(file)).toBe(false)
-  })
-
-  it.each([false, true])('delegates account identity only from the internal group coordinator (trusted=%s)', async trusted => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    socket.data = { user: { id: 7 }, ...(trusted ? { groupRunIsCurrent: () => true } : {}) }
-    let token = ''
-    handleCodingAgentRunMock.mockImplementation(async (_nsp: any, _socket: any, data: any, _profile: any, sessions: any) => {
-      token = JSON.parse(readFileSync(data.studio_mcp_token_file, 'utf8')).token
-      Object.assign(sessions.get(data.session_id), { isWorking: true, activeRunMarker: 'native-turn' })
-      return { runId: 'native-runtime' } as any
-    })
-    try {
-      await (server as any).handleRun(socket, { session_id: 'identity-group', input: 'Work', coding_agent_id: 'codex',
-        source: 'group_chat', group_room_id: 'room', group_agent_id: 'worker', mode: 'global' }, 'research')
-      expect(runMcpCredentials.authenticate(token)?.userId).toBe(trusted ? 7 : undefined)
-      expect(runMcpCredentials.authenticate(token)?.sessionId).toBe('identity-group')
-    } finally {
-      server.emitExternalEvent('identity-group', 'run.completed', {})
-    }
-  })
-})

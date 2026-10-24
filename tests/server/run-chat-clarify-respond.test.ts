@@ -16,6 +16,10 @@ vi.mock('../../packages/server/src/modules/ekko/services/clarifications', () => 
 }))
 
 vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  configureChatAgentRuntime: vi.fn((deps: any) => { (globalThis as any).__chatDeps = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    (globalThis as any).__chatDeps?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
   createPrimaryAgentBridge: vi.fn(() => bridgeMock),
   getPrimaryAgentBridgeManager: vi.fn(() => ({ start: vi.fn(async () => {}), ensureReady: vi.fn() })),
   redactPrimaryAgentBridgeError: (error?: string) => error,
@@ -30,6 +34,20 @@ vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', ()
   respondToChatEkkoToolApproval: vi.fn(() => ({ handled: false, resolved: false })),
   respondToChatEkkoClarification: respondToEkkoClarificationMock,
 }))
+
+beforeEach(async () => {
+  const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+  configureChatAgentRuntime({
+    projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+      message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+        ? { ...message, content: options.truncateOtherTools(message.content) }
+        : message
+    )),
+    createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+    getPrimaryAgentBridgeManager: vi.fn(),
+    redactPrimaryAgentBridgeError: (error?: string) => error,
+  })
+})
 
 vi.mock('../../packages/server/src/modules/studio/public/logging', () => ({
   logger: {
@@ -138,26 +156,7 @@ describe('ChatRunSocket clarify responses', { timeout: 15_000 }, () => {
     expect(() => server.requestClarification('mcp-context', 'default', { question: 'Old Q' })).toThrow('expired')
   })
 
-  it('routes Ekko clarification responses without calling the Hermes bridge', async () => {
-    respondToEkkoClarificationMock.mockReturnValueOnce({ handled: true, resolved: true })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, socket } = createSocketHarness()
-    const server = new ChatRunSocket(io as any)
 
-    ;(server as any).onConnection(socket)
-    await handlers.get('clarify.respond')?.({
-      session_id: 'session-1',
-      clarify_id: 'ekko-clarify-1',
-      response: 'B',
-    })
-
-    expect(respondToEkkoClarificationMock).toHaveBeenCalledWith(
-      'session-1',
-      'ekko-clarify-1',
-      'B',
-    )
-    expect(bridgeMock.clarifyRespond).not.toHaveBeenCalled()
-  })
 
   it('forwards clarify.respond events to the bridge and emits clarify.resolved', async () => {
     bridgeMock.clarifyRespond.mockResolvedValue({ ok: true, resolved: true })

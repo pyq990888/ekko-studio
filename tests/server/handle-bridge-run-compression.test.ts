@@ -57,6 +57,17 @@ vi.mock('../../packages/server/src/modules/studio/repositories/usage-store', () 
   getUsage: vi.fn(),
 }))
 
+// Hermes bridge is the only chat runtime; projectChatBrowserHistory is a
+// mandatory dependency of the Studio chat-agent runtime facade.
+const chatAgentRuntimeDeps = vi.hoisted(() => ({ current: null as any }))
+vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+  configureChatAgentRuntime: vi.fn((deps: any) => { chatAgentRuntimeDeps.current = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    chatAgentRuntimeDeps.current?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
+}))
+
 vi.mock('../../packages/server/src/modules/studio/public/logging', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   bridgeLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -147,7 +158,18 @@ function makeSockets() {
 }
 
 describe('handle-bridge-run compression', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+    configureChatAgentRuntime({
+      projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+        message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+          ? { ...message, content: options.truncateOtherTools(message.content) }
+          : message
+      )),
+      createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+      getPrimaryAgentBridgeManager: vi.fn(),
+      redactPrimaryAgentBridgeError: (error?: string) => error,
+    })
     mocks.rows = [...PREVIOUS_TURN]
   })
 

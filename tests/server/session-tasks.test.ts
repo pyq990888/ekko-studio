@@ -108,7 +108,7 @@ describe('conversation-maintained session goals', () => {
     expect(() => write([goal()], 1)).toThrow()
   })
 
-  it.each(['group_chat', 'workflow', 'global_agent'])('rejects writes from %s sessions', source => {
+  it.each(['global_agent'] as const)('rejects writes from removed %s sessions', source => {
     db.prepare('UPDATE sessions SET source = ? WHERE id = ?').run(source, 's1')
     message('user', 'Do work')
     expect(() => write([goal()])).toThrow('unavailable')

@@ -1,5 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+
+vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+  configureChatAgentRuntime: vi.fn((deps: any) => { (globalThis as any).__chatDeps = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    (globalThis as any).__chatDeps?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
+}))
+
+beforeEach(async () => {
+  const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+  configureChatAgentRuntime({
+    projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+      message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+        ? { ...message, content: options.truncateOtherTools(message.content) }
+        : message
+    )),
+    createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+    getPrimaryAgentBridgeManager: vi.fn(),
+    redactPrimaryAgentBridgeError: (error?: string) => error,
+  })
+})
 describe('compression cursor persistence', () => {
   let db: any = null
 

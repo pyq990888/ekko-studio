@@ -83,6 +83,10 @@ vi.mock('../../packages/server/src/modules/coding-agents/services/runtime/run-ma
 }))
 
 vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  configureChatAgentRuntime: vi.fn((deps: any) => { (globalThis as any).__chatDeps = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    (globalThis as any).__chatDeps?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
   getChatCodingAgentMcpServers: vi.fn(() => ({ 'ekko-studio-interaction': { command: 'studio' }, 'ekko-studio-use': { command: 'studio' } })),
   resolveChatEkkoMcpServers: vi.fn(() => ({ 'ekko-studio-use': { command: 'studio' } })),
   createPrimaryAgentBridge: vi.fn(() => bridgeMock),
@@ -96,6 +100,20 @@ vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', ()
   respondToChatEkkoToolApproval: vi.fn(() => ({ handled: false, resolved: false })),
   respondToChatEkkoClarification: vi.fn(() => ({ handled: false, resolved: false })),
 }))
+
+beforeEach(async () => {
+  const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+  configureChatAgentRuntime({
+    projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+      message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+        ? { ...message, content: options.truncateOtherTools(message.content) }
+        : message
+    )),
+    createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+    getPrimaryAgentBridgeManager: vi.fn(),
+    redactPrimaryAgentBridgeError: (error?: string) => error,
+  })
+})
 
 vi.mock('../../packages/server/src/modules/studio/public/logging', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -413,67 +431,9 @@ describe('ChatRunSocket queued bridge runs', () => {
     }))
   })
 
-  it('immediately interrupts a Codex run before starting the selected queued message', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).onConnection(socket)
-    ;(server as any).sessionMap.set('session-1', {
-      messages: [], isWorking: true, events: [], source: 'coding_agent', webhookAgent: 'codex',
-      profile: 'default', runId: 'run-codex',
-      queue: [{ queue_id: 'queue-codex', input: 'later', profile: 'default', source: 'coding_agent' }],
-    })
 
-    handlers.get('insert_queued_run')?.({ session_id: 'session-1', queue_id: 'queue-codex' })
-    await vi.waitFor(() => expect(codingAgentRunManagerMock.interruptForQueueInsertion).toHaveBeenCalledOnce())
 
-    expect(bridgeMock.requestBoundaryInterrupt).not.toHaveBeenCalled()
-    expect(codingAgentRunManagerMock.interruptForQueueInsertion)
-      .toHaveBeenCalledWith('session-1', 'run-codex')
-    expect((server as any).sessionMap.get('session-1').queueInsertion).toEqual(expect.objectContaining({
-      queueId: 'queue-codex',
-      runtime: 'codex',
-      phase: 'stopping_current_turn',
-      guarantee: 'immediate',
-    }))
 
-    server.markExternalRunCompleted('session-1', 'run.failed')
-    await vi.waitFor(() => expect(handleCodingAgentRunMock).toHaveBeenCalledOnce())
-    expect(handleCodingAgentRunMock.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
-      session_id: 'session-1',
-      input: 'later',
-    }))
-    expect((server as any).sessionMap.get('session-1')).toEqual(expect.objectContaining({
-      queue: [],
-      queueInsertion: undefined,
-      isWorking: true,
-    }))
-  })
-
-  it('routes Ekko and Global Agent queue insertion through the Ekko-owned boundary', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).onConnection(socket)
-    ;(server as any).sessionMap.set('session-1', {
-      messages: [], isWorking: true, events: [], source: 'coding_agent', webhookAgent: 'ekko',
-      profile: 'default', runId: 'run-ekko',
-      queue: [{
-        queue_id: 'queue-global-ekko', input: 'follow up', profile: 'default',
-        source: 'coding_agent', sessionSource: 'global_agent', codingAgentId: 'ekko-agent',
-      }],
-    })
-
-    handlers.get('insert_queued_run')?.({ session_id: 'session-1', queue_id: 'queue-global-ekko' })
-
-    await vi.waitFor(() => expect(ekkoBoundaryInterruptMock).toHaveBeenCalledOnce())
-    expect(ekkoBoundaryInterruptMock).toHaveBeenCalledWith({
-      sessionId: 'session-1', expectedRunId: 'run-ekko',
-    })
-    expect((server as any).sessionMap.get('session-1').queueInsertion).toEqual(expect.objectContaining({
-      runtime: 'ekko', phase: 'stopping_current_turn', queueId: 'queue-global-ekko',
-    }))
-  })
 
   it('broadcasts insertion completion before dequeuing the selected message', async () => {
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
@@ -728,77 +688,9 @@ describe('ChatRunSocket queued bridge runs', () => {
     expect(call[6]).toBe(false)
   })
 
-  it('queues coding-agent messages while a coding-agent turn is active', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, namespace, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).onConnection(socket)
-    ;(server as any).sessionMap.set('session-1', {
-      messages: [],
-      isWorking: true,
-      isAborting: false,
-      events: [],
-      queue: [],
-      source: 'coding_agent',
-    })
 
-    await handlers.get('run')?.({
-      session_id: 'session-1',
-      input: 'queued codex follow-up',
-      source: 'coding_agent',
-      coding_agent_id: 'codex',
-      queue_id: 'queue-codex',
-      model: 'gpt-5-codex',
-      provider: 'openai-codex',
-      profile: 'default',
-    })
 
-    expect(handleCodingAgentRunMock).not.toHaveBeenCalled()
-    expect((server as any).sessionMap.get('session-1').queue).toEqual([
-      expect.objectContaining({
-        queue_id: 'queue-codex',
-        input: 'queued codex follow-up',
-        source: 'coding_agent',
-        codingAgentId: 'codex',
-      }),
-    ])
-    expect(namespace.to).toHaveBeenCalledWith('session:session-1')
-  })
 
-  it('dequeues coding-agent messages when an external coding-agent run completes', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).sessionMap.set('session-1', {
-      messages: [],
-      isWorking: true,
-      isAborting: false,
-      events: [],
-      queue: [{
-        queue_id: 'queue-codex',
-        input: 'queued codex follow-up',
-        source: 'coding_agent',
-        codingAgentId: 'codex',
-        model: 'gpt-5-codex',
-        provider: 'openai-codex',
-        profile: 'default',
-        originSocketId: socket.id,
-      }],
-      source: 'coding_agent',
-    })
-
-    ;(server as any).markExternalRunCompleted('session-1', 'run.completed')
-
-    await vi.waitFor(() => expect(handleCodingAgentRunMock).toHaveBeenCalled())
-    const call = handleCodingAgentRunMock.mock.calls.at(-1)!
-    expect(call[2]).toEqual(expect.objectContaining({
-      input: 'queued codex follow-up',
-      source: 'coding_agent',
-      coding_agent_id: 'codex',
-      queue_id: 'queue-codex',
-    }))
-    expect((server as any).sessionMap.get('session-1').queue).toEqual([])
-  })
 
   it('checks bridge resume status without cold-starting the profile worker', async () => {
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')

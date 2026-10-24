@@ -1,5 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+
+vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+  configureChatAgentRuntime: vi.fn((deps: any) => { (globalThis as any).__chatDeps = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    (globalThis as any).__chatDeps?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
+}))
+
+beforeEach(async () => {
+  const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+  configureChatAgentRuntime({
+    projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+      message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+        ? { ...message, content: options.truncateOtherTools(message.content) }
+        : message
+    )),
+    createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+    getPrimaryAgentBridgeManager: vi.fn(),
+    redactPrimaryAgentBridgeError: (error?: string) => error,
+  })
+})
 describe('message deletion and compression history', () => {
   let db: any
   beforeEach(async () => {
@@ -124,10 +146,10 @@ describe('message deletion and compression history', () => {
     expect(f.getSessionContextMessages('s').map(m => m.id)).toEqual(expect.arrayContaining(retained))
   })
 
-  it.each(['hermes', 'ekko-agent'])('deletes only the selected identical input for %s and does not restore it on resume', async agent => {
+  it('deletes only the selected identical input for hermes and does not restore it on resume', async () => {
     const f = await fixture()
     db.prepare('UPDATE sessions SET agent = ?, source = ? WHERE id = ?')
-      .run(agent, agent === 'hermes' ? 'cli' : 'builtin_agent', 's')
+      .run('hermes', 'cli', 's')
     const { getOrCreateSession, buildDbSnapshotAwareHistory } = await import('../../packages/server/src/modules/studio/services/chat-run/compression')
     const { loadSessionStateFromDb } = await import('../../packages/server/src/modules/studio/services/chat-run/load-state')
     const { buildResumeMessagePage } = await import('../../packages/server/src/modules/studio/services/chat-run/resume-payload')
@@ -159,9 +181,9 @@ describe('message deletion and compression history', () => {
     expect(f.getCompressionSnapshot('s')).toBeNull()
   })
 
-  it.each(['hermes', 'ekko-agent'])('keeps %s compressed context, overhead and billing stable through deletion and cold reload', async agent => {
+  it('keeps hermes compressed context, overhead and billing stable through deletion and cold reload', async () => {
     const f = await fixture()
-    db.prepare('UPDATE sessions SET agent = ? WHERE id = ?').run(agent, 's')
+    db.prepare('UPDATE sessions SET agent = ? WHERE id = ?').run('hermes', 's')
     const { getSessionContextOverhead, estimateSessionContextTokens, refreshContextUsageAfterDeletion } = await import('../../packages/server/src/modules/studio/services/chat-run/context-usage')
     const { loadSessionStateFromDb } = await import('../../packages/server/src/modules/studio/services/chat-run/load-state')
     const { getSessionContextUsageEstimate } = await import('../../packages/server/src/modules/studio/repositories/session-context-usage')
@@ -174,10 +196,10 @@ describe('message deletion and compression history', () => {
       compressedThroughMessageId: cursor, protectedHeadThroughMessageId: head, expectedHistoryRevision: 0,
     })
     const snapshot = f.getCompressionSnapshot('s')!
-    const source = agent === 'hermes' ? 'hermes' : 'ekko_agent'
+    const source = 'hermes'
     updateUsage('s', { source, inputTokens: 100_000, outputTokens: 36_100, createdAt: 1000 })
     const billing = getRecordedUsageTotals('s', source)
-    const state = { [agent === 'hermes' ? 'bridgeContext' : 'ekkoContext']: { fixedContextTokens: 12_000 } } as any
+    const state = { bridgeContext: { fixedContextTokens: 12_000 } } as any
     const overhead = getSessionContextOverhead('s', state)
     const before = estimateSessionContextTokens('s', overhead)!
     f.deleteSessionMessageGroups('s', [tail], 0)

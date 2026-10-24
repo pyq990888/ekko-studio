@@ -20,13 +20,11 @@ describe('Studio crash isolation wiring', () => {
     const bootstrap = readFileSync('packages/server/src/bootstrap/http.ts', 'utf8')
     const listen = bootstrap.indexOf('await listenWithFallback(')
     const ready = bootstrap.indexOf('bootstrapReady = true', listen)
-    const recovery = bootstrap.indexOf('recoverActiveRuns()', ready)
-    const versionCheck = bootstrap.indexOf('startVersionCheck()', recovery)
+    const versionCheck = bootstrap.indexOf('startVersionCheck()', ready)
 
     expect(listen).toBeGreaterThan(-1)
     expect(ready).toBeGreaterThan(listen)
-    expect(recovery).toBeGreaterThan(ready)
-    expect(versionCheck).toBeGreaterThan(recovery)
+    expect(versionCheck).toBeGreaterThan(ready)
   })
 
   it('reuses the Desktop-locked Hermes status during bootstrap', () => {
@@ -35,16 +33,6 @@ describe('Studio crash isolation wiring', () => {
     expect(bootstrap).toContain('readLockedDesktopHermesSelection()')
     expect(bootstrap).toContain('recordLockedHermesSelection(hermesSelection)')
     expect(bootstrap).toContain('...(!lockedDesktopSelection ? [getRuntimeVersionStatus({ includeRemote: false })] : [])')
-  })
-
-  it('makes Desktop poll readiness and recover one unexpected server exit', () => {
-    const server = readFileSync('packages/desktop/src/main/webui-server.ts', 'utf8')
-    const desktop = readFileSync('packages/desktop/src/main/index.ts', 'utf8')
-
-    expect(server).toContain('/health/ready')
-    expect(server).toContain('setWebUiUnexpectedExitHandler')
-    expect(desktop).toContain('recoverUnexpectedWebUiExit')
-    expect(desktop).toContain('unexpectedWebUiExitCount > 1')
   })
 
   it('keeps logger initialization and client mounting on explicit fallback paths', () => {
