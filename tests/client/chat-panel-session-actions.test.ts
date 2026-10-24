@@ -61,7 +61,7 @@ describe('ChatPanel session action menus', () => {
   it('builds the sidebar context menu with the shared icon-bearing option helper', () => {
     expect(source).toContain('buildSessionContextMenuOptions({')
     expect(source).toContain('categoryChildren: buildSessionCategoryMenuChildren({')
-    expect(source).toContain('includeArchive: contextSession.value?.source !== "global_agent"')
+    expect(source).toContain('includeArchive: true')
     expect(source).toContain('includeModel: canSetContextSessionModel.value')
     expect(source).toContain('open: t(desktopChatWindowAvailable')
   })

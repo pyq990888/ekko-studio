@@ -1,6 +1,5 @@
 import { readFileSync } from 'fs'
 import { describe, expect, it } from 'vitest'
-import { AGENT_OPTIONS } from '../../packages/client/src/utils/agent-options'
 
 describe('ChatPanel session clicks', () => {
   it('switches the store when the route is already on the clicked session', () => {
