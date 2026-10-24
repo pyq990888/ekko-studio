@@ -3258,6 +3258,8 @@ class ChatRoom {
 
 export class GroupChatServer {
     private io: Server
+    private readonly ownsIo: boolean
+    private shutdownPromise: Promise<void> | null = null
     private nsp: Namespace
     private storage: ChatStorage
     private rooms = new Map<string, ChatRoom>()
@@ -3403,34 +3405,40 @@ export class GroupChatServer {
     /** A short-lived proof that an invite guest actually joined as this room member. */
     private guestAgentRequestTokens = new Map<string, { hash: Buffer; expiresAt: number; socketId: string }>()
 
-    constructor(httpServers: HttpServer | HttpServer[]) {
+    constructor(httpServers: HttpServer | HttpServer[], io?: Server) {
         this.storage = new ChatStorage()
         this.storage.init()
         const servers = Array.isArray(httpServers) ? httpServers : [httpServers]
 
-        this.io = new Server(servers[0], {
-            cors: { origin: createSocketIoCorsOrigin(config.corsOrigins) },
-            maxHttpBufferSize: 2_000_000,
-            allowRequest: (req, callback) => {
-                if (shouldRejectUpgradeOrigin(req, config.corsOrigins)) {
-                    logger.warn({
-                        origin: req.headers.origin || '',
-                        host: req.headers.host || '',
-                        url: req.url || '',
-                    }, '[Socket.IO] rejected upgrade origin')
-                    callback('origin not allowed', false)
-                    return
-                }
-                callback(null, true)
-            },
-            pingInterval: 25_000,
-            pingTimeout: 90_000,
-            connectionStateRecovery: {
-                maxDisconnectionDuration: 2 * 60_000,
-                skipMiddlewares: true,
-            },
-        })
-        servers.slice(1).forEach((httpServer) => this.io.attach(httpServer))
+        if (io) {
+            this.io = io
+            this.ownsIo = false
+        } else {
+            this.io = new Server(servers[0], {
+                cors: { origin: createSocketIoCorsOrigin(config.corsOrigins) },
+                maxHttpBufferSize: 2_000_000,
+                allowRequest: (req, callback) => {
+                    if (shouldRejectUpgradeOrigin(req, config.corsOrigins)) {
+                        logger.warn({
+                            origin: req.headers.origin || '',
+                            host: req.headers.host || '',
+                            url: req.url || '',
+                        }, '[Socket.IO] rejected upgrade origin')
+                        callback('origin not allowed', false)
+                        return
+                    }
+                    callback(null, true)
+                },
+                pingInterval: 25_000,
+                pingTimeout: 90_000,
+                connectionStateRecovery: {
+                    maxDisconnectionDuration: 2 * 60_000,
+                    skipMiddlewares: true,
+                },
+            })
+            servers.slice(1).forEach((httpServer) => this.io.attach(httpServer))
+            this.ownsIo = true
+        }
         this.nsp = this.io.of('/group-chat')
         const eventSocket = (user: AuthenticatedUser) => ({ id: '', data: { authUser: user } } as unknown as Socket)
         const removeGroupEventAccess = registerGroupEventAccess({ canReceive: (user, roomId, event) => {
@@ -3553,6 +3561,24 @@ export class GroupChatServer {
 
     getIO(): Server {
         return this.io
+    }
+
+    /**
+     * Disconnect group chat agents. The shared Socket.IO transport is owned by
+     * bootstrap and must outlive this module, so only a server created by this
+     * instance is closed here (back-compat for standalone construction).
+     */
+    async shutdown(): Promise<void> {
+        if (!this.shutdownPromise) {
+            this.shutdownPromise = (async () => {
+                try {
+                    await this.agentClients.disconnectAll()
+                } finally {
+                    if (this.ownsIo) await this.io.close()
+                }
+            })()
+        }
+        return this.shutdownPromise
     }
 
     private assertMessageDeletionIdle(roomId: string): void {
