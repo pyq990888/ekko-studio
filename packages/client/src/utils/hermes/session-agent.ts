@@ -3,10 +3,52 @@ import type { Session } from '@/stores/hermes/chat'
 
 type SessionAgentIdentity = { source?: string; agent?: string; codingAgentId?: string }
 
-export function isHermesSession(session?: SessionAgentIdentity | null): boolean {
-  if (!session || isBuiltinEkkoSession(session) || isExternalCodingAgentSession(session)) return false
+/** Active chat runs only accept the Hermes runtime. */
+export type ActiveAgentRuntime = 'hermes'
+
+/** Runtime values that may still exist in persisted history from before slimming. */
+export type PersistedAgentRuntime =
+  | 'hermes'
+  | 'ekko'
+  | 'ekko-agent'
+  | 'claude-code'
+  | 'codex'
+  | 'pi'
+  | 'grok'
+  | 'opencode'
+  | 'dsh'
+  | 'cursor'
+  | 'antigravity'
+  | 'qwen'
+  | 'kimi'
+  | 'codebuddy'
+  | 'qoder'
+  | 'copilot'
+  | 'zcode'
+
+/** Studio surfaces removed from active chat; old rows remain readable in History. */
+export const REMOVED_CHAT_SESSION_SOURCES = [
+  'coding_agent',
+  'builtin_agent',
+  'global_agent',
+  'workflow',
+  'group_chat',
+] as const
+
+const REMOVED_CHAT_SESSION_SOURCE_SET = new Set<string>(REMOVED_CHAT_SESSION_SOURCES)
+
+export function isActiveHermesSession(session?: SessionAgentIdentity | null): boolean {
+  if (!session) return false
+  const source = (session.source || '').trim().toLowerCase()
+  if (REMOVED_CHAT_SESSION_SOURCE_SET.has(source)) return false
+  if (session.codingAgentId) return false
   // Older Hermes histories omit the agent field.
-  return !session.agent || session.agent.trim().toLowerCase() === 'hermes'
+  const agent = (session.agent || '').trim().toLowerCase()
+  return !agent || agent === 'hermes'
+}
+
+export function isHermesSession(session?: SessionAgentIdentity | null): boolean {
+  return isActiveHermesSession(session)
 }
 
 export function isBuiltinEkkoSession(session?: SessionAgentIdentity | null): boolean {

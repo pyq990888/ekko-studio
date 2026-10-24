@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/stores/hermes/settings'
 import { fetchSession } from '@/api/studio/sessions'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { isActiveHermesSession } from '@/utils/hermes/session-agent'
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
@@ -36,14 +37,11 @@ const routeMessageId = computed(() => {
 })
 
 const isStandaloneChat = computed(() => route.meta?.standaloneChat === true)
-type ChatContentMode = 'chat' | 'connections' | 'agents' | 'models'
+type ChatContentMode = 'chat' | 'models'
 
-const contentMode = computed<ChatContentMode>(() => {
-  if (route.name === 'hermes.connections') return 'connections'
-  if (route.name === 'hermes.agentManager') return 'agents'
-  if (route.name === 'hermes.models') return 'models'
-  return 'chat'
-})
+const contentMode = computed<ChatContentMode>(() =>
+  route.name === 'hermes.models' ? 'models' : 'chat',
+)
 const productTitle = 'Ekko Studio'
 const initializing = ref(true)
 const routeLoading = ref(false)
@@ -76,8 +74,8 @@ async function loadRouteSession() {
   if (sessionId && chatStore.activeSessionId !== sessionId) {
     const session = await fetchSession(sessionId, routeProfile.value)
     if (disposed || routeSessionId.value !== sessionId || routeMessageId.value !== focusId) return
-    if (session && (!routeProfile.value || (session.profile || 'default') === routeProfile.value)
-      && !['group_chat', 'workflow', 'global_agent'].includes(session.source || '')) {
+    if (session && isActiveHermesSession(session)
+      && (!routeProfile.value || (session.profile || 'default') === routeProfile.value)) {
       chatStore.ensureSessionLoaded(session)
       await chatStore.switchSession(sessionId, focusId)
     }
