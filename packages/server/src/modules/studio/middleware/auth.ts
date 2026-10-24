@@ -51,7 +51,6 @@ declare module 'koa' {
   interface DefaultState {
     user?: AuthenticatedUser
     profile?: RequestProfile
-    serverTokenAuth?: boolean
   }
 }
 
@@ -116,31 +115,6 @@ function requestToken(ctx: Context): string {
   const auth = ctx.headers.authorization || ''
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) return auth.slice(7).trim()
   return typeof ctx.query.token === 'string' ? ctx.query.token.trim() : ''
-}
-
-function allowsServerTokenPath(path: string): boolean {
-  return path.startsWith('/api/studio/voice/proxy/')
-}
-
-function isLoopbackRequest(ctx: Context): boolean {
-  const ip = String(ctx.ip || ctx.request.ip || '').trim()
-  const remote = String(ctx.req.socket.remoteAddress || '').trim()
-  const values = [ip, remote].map(value => value.startsWith('::ffff:') ? value.slice(7) : value)
-  return values.some(value => (
-    value === '127.0.0.1' ||
-    value === '::1' ||
-    value === 'localhost' ||
-    value.startsWith('127.')
-  ))
-}
-
-async function allowServerTokenForAgentEndpoint(ctx: Context, token: string): Promise<boolean> {
-  if (!token || !allowsServerTokenPath(ctx.path)) return false
-  if (!isLoopbackRequest(ctx)) return false
-  const serverToken = await getToken()
-  if (token !== serverToken) return false
-  ctx.state.serverTokenAuth = true
-  return true
 }
 
 function isProtectedHttpPath(path: string): boolean {
@@ -350,10 +324,6 @@ export async function requireUserJwt(ctx: Context, next: Next): Promise<void> {
   }
   const payload = token ? verifyUserJwt(token, secret) : null
   if (!payload) {
-    if (await allowServerTokenForAgentEndpoint(ctx, token)) {
-      await next()
-      return
-    }
     ctx.status = 401
     ctx.body = { error: 'Unauthorized' }
     return

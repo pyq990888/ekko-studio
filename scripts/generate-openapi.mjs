@@ -79,8 +79,6 @@ const tagMappings = {
   'modules/studio/routes/group-chat.ts': { name: 'Group Chat', description: 'Cross-agent group chat management' },
   'modules/studio/routes/chat-run.ts': { name: 'Chat Run', description: 'Cross-agent chat run HTTP and Socket.IO bridge operations' },
   'modules/studio/routes/chat-webhooks.ts': { name: 'Chat Webhooks', description: 'Cross-agent Chat Run webhook endpoint management' },
-  'modules/studio/routes/tts.ts': { name: 'TTS', description: 'Text-to-speech generation and settings' },
-  'modules/studio/routes/stt.ts': { name: 'STT', description: 'Speech-to-text transcription and settings' },
   'modules/studio/routes/performance-monitor.ts': { name: 'Performance', description: 'Runtime performance monitoring' },
   'modules/studio/routes/health.ts': { name: 'Health', description: 'Health check' },
   'modules/studio/routes/update.ts': { name: 'Update', description: 'Studio self-update management' },

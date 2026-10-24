@@ -46,8 +46,6 @@ import { jobRoutes } from '../modules/hermes/routes/jobs'
 import { cronHistoryRoutes } from '../modules/hermes/routes/cron-history'
 import { kanbanRoutes } from '../modules/hermes/routes/kanban'
 import { workflowRoutes } from '../modules/studio/routes/workflows'
-import { ttsRoutes, ttsProtectedRoutes } from '../modules/studio/routes/tts'
-import { sttProtectedRoutes } from '../modules/studio/routes/stt'
 import { mcuFirmwareRoutes } from '../modules/studio/routes/mcu-firmware'
 import { groupChatPublicRoutes, groupChatRoutes } from '../modules/studio/routes/group-chat'
 import { chatRunRoutes } from '../modules/studio/routes/chat-run'
@@ -79,7 +77,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(mcuDevicePublicRoutes.routes())
   app.use(claudeCodeProxyRoutes.routes())
   app.use(codexProxyRoutes.routes())
-  app.use(ttsRoutes.routes())
   app.use(apiDocsRoutes.routes())
   app.use(groupChatPublicRoutes.routes())
   app.use(chatWebhookPublicRoutes.routes())
@@ -128,8 +125,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(cronHistoryRoutes.routes())
   app.use(kanbanRoutes.routes())
   app.use(workflowRoutes.routes())
-  app.use(ttsProtectedRoutes.routes())
-  app.use(sttProtectedRoutes.routes())
   app.use(mcuFirmwareRoutes.routes())
   app.use(performanceMonitorRoutes.routes())
   app.use(journeyRoutes.routes())
