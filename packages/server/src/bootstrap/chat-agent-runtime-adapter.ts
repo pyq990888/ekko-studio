@@ -1,11 +1,10 @@
 // Hermes bridge dependencies. This import block is the mandatory seam for the
-// Hermes-only chat runtime; `projectBrowserHistory` is still hosted by
-// ekko-agent until Phase 2 replaces that implementation.
+// Hermes-only chat runtime.
 import './agent-profile-adapter'
 import { AgentBridgeClient } from '../modules/hermes/services/bridge/client'
 import { getAgentBridgeManager } from '../modules/hermes/services/bridge/manager'
 import { redactAgentBridgeError } from '../modules/hermes/services/bridge/redact'
-import { projectBrowserHistory } from '../../../ekko-agent/src'
+import { projectBrowserHistory } from '../../../shared/chat-browser-history'
 import {
   configureChatAgentRuntime,
   configureLegacyChatAgentRuntime,
