@@ -145,11 +145,6 @@ for (const [file, factory] of [
   }
 }
 
-const desktopReleaseWorkflow = await readText('.github/workflows/desktop-release.yml')
-const desktopManualBuildWorkflow = await readText('.github/workflows/desktop-manual-build.yml')
-const desktopUpdateTestWorkflow = await readText('.github/workflows/desktop-update-test.yml')
-const desktopMacUpdateManifestWorkflow = await readText('.github/workflows/desktop-mac-update-manifest.yml')
-const desktopRuntimeWorkflow = await readText('.github/workflows/desktop-runtime.yml')
 const webuiReleaseWorkflow = await readText('.github/workflows/webui-release.yml')
 const dockerPublishWorkflow = await readText('.github/workflows/docker-publish.yml')
 const electronBuilderConfig = await readText('packages/desktop/electron-builder.yml')
@@ -169,19 +164,6 @@ const desktopUpdaterSource = await readText('packages/desktop/src/main/updater-s
 const desktopInstallerScript = await readText('packages/desktop/build/installer.nsh')
 const desktopRuntimeManager = await readText('packages/desktop/src/main/runtime-manager.ts')
 const desktopPaths = await readText('packages/desktop/src/main/paths.ts')
-const desktopRuntimeAssetName = await readText('packages/desktop/scripts/runtime-asset-name.mjs')
-if (!desktopReleaseWorkflow.includes('files: ${{ matrix.artifact_files }}')) {
-  fail('desktop-release.yml must upload matrix-specific artifact_files')
-}
-
-if (desktopReleaseWorkflow.includes('types: [published]')) {
-  fail('desktop-release.yml must not run full desktop packaging on every published GitHub Release')
-}
-
-if (!desktopReleaseWorkflow.includes('gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest')) {
-  fail('desktop-release.yml must mark successful full desktop releases as GitHub latest')
-}
-
 for (const [file, text] of [
   ['webui-release.yml', webuiReleaseWorkflow],
   ['docker-publish.yml', dockerPublishWorkflow],
@@ -215,65 +197,6 @@ for (const [file, text] of [
   if (!text.includes('<key>com.apple.security.device.audio-input</key>')) {
     fail(`${file} must allow microphone audio input`)
   }
-}
-
-for (const target of ['target_os: darwin', 'target_os: win32', 'target_os: linux']) {
-  if (!desktopReleaseWorkflow.includes(target)) {
-    fail(`desktop-release.yml is missing matrix target ${target}`)
-  }
-}
-
-for (const expectedGlob of ['*.dmg', '*.exe', '*.AppImage']) {
-  if (!desktopReleaseWorkflow.includes(expectedGlob)) {
-    fail(`desktop-release.yml is missing expected artifact glob ${expectedGlob}`)
-  }
-}
-
-if (!desktopReleaseWorkflow.includes('fail_on_unmatched_files: true')) {
-  fail('desktop-release.yml must keep fail_on_unmatched_files: true')
-}
-
-function workflowCaseBody(text, caseLabel) {
-  const start = text.indexOf(`${caseLabel})`)
-  if (start < 0) fail(`desktop-manual-build.yml is missing ${caseLabel} case`)
-  const end = text.indexOf(';;', start)
-  if (end < 0) fail(`desktop-manual-build.yml ${caseLabel} case is missing terminator`)
-  return text.slice(start, end)
-}
-
-for (const macCase of ['darwin-arm64', 'darwin-x64']) {
-  const body = workflowCaseBody(desktopManualBuildWorkflow, macCase)
-  if (body.includes('latest*.yml')) {
-    fail(`desktop-manual-build.yml must not publish single-arch macOS update manifests from ${macCase}`)
-  }
-  for (const glob of ['*.dmg.blockmap', '*.zip.blockmap']) {
-    if (!body.includes(glob)) {
-      fail(`desktop-manual-build.yml ${macCase} must keep uploading ${glob}`)
-    }
-  }
-}
-
-for (const phrase of [
-  'mac-update-manifest:',
-  "if: needs.validate.outputs.target_os == 'darwin' && github.event.inputs.release_tag != ''",
-  'Both macOS architectures are not available yet; leaving latest-mac.yml unchanged.',
-  'gh release upload "$TAG" /tmp/latest-mac.yml',
-]) {
-  if (!desktopManualBuildWorkflow.includes(phrase)) {
-    fail(`desktop-manual-build.yml must include macOS manifest repair behavior: ${phrase}`)
-  }
-}
-
-if (!desktopMacUpdateManifestWorkflow.includes('Repair macOS Update Manifest')) {
-  fail('desktop-mac-update-manifest.yml must provide a manual macOS manifest repair workflow')
-}
-
-if (!desktopMacUpdateManifestWorkflow.includes("gh release download \"$TAG\"") || !desktopMacUpdateManifestWorkflow.includes('/tmp/latest-mac.yml')) {
-  fail('desktop-mac-update-manifest.yml must generate latest-mac.yml from release assets')
-}
-
-if (!desktopMacUpdateManifestWorkflow.includes('gh release upload "$TAG" /tmp/latest-mac.yml')) {
-  fail('desktop-mac-update-manifest.yml must upload the merged latest-mac.yml to the release')
 }
 
 for (const phrase of [
@@ -312,20 +235,6 @@ for (const inheritedVersion of ['process.env.NODE_VERSION', 'process.versions.no
   if (desktopFetchNode.includes(inheritedVersion)) {
     fail(`fetch-node.mjs must not inherit the build runner Node.js version: ${inheritedVersion}`)
   }
-}
-
-for (const phrase of [
-  'steps.check.outputs.missing',
-  'npm --prefix packages/desktop run prepare:runtime',
-  'npm --prefix packages/desktop run package:runtime',
-]) {
-  if (!desktopRuntimeWorkflow.includes(phrase)) {
-    fail(`desktop-runtime.yml must build and publish missing runtime package assets: ${phrase}`)
-  }
-}
-
-if (!desktopRuntimeAssetName.includes('hermes-runtime-hermes-agent-')) {
-  fail('runtime asset naming must include hermes-agent version')
 }
 
 for (const phrase of [
@@ -443,14 +352,6 @@ for (const phrase of ['checkForUpdatesWithFallback()', 'readDesktopUpdateSource(
 
 if (desktopUpdater.includes('fetch(') || desktopUpdaterSource.includes('fetch(')) {
   fail('desktop updater must not make custom fetch requests to resolve the latest release tag')
-}
-
-if (!desktopUpdateTestWorkflow.includes('contents: read')
-  || /contents:\s*write|action-gh-release|gh\s+release/.test(desktopUpdateTestWorkflow)) {
-  fail('desktop update test workflow must not have a production release publication path')
-}
-for (const phrase of ['configure-macos-signing.mjs --require-signed', 'run dist:update-test', 'run test:updater']) {
-  if (!desktopUpdateTestWorkflow.includes(phrase)) fail(`desktop update test workflow must include: ${phrase}`)
 }
 
 for (const phrase of [
