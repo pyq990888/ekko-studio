@@ -1,6 +1,6 @@
 # Development Guidelines
 
-This document defines project-level development rules for Ekko Studio. It is tool-agnostic and applies to all contributors and coding agents.
+This document defines project-level development rules for Hermes WebUI. It is tool-agnostic and applies to all contributors and coding agents.
 
 ## Commands
 
@@ -25,8 +25,11 @@ npm run build
 - Server code lives under `packages/server/src`.
 - Hermes-specific client code stays under `hermes` namespaces: API modules, views, stores, and components.
 - Server routes should stay thin. Put request handling in controllers and reusable behavior in services.
-- The chat runtime is Socket.IO based and lives under `packages/server/src/services/hermes/run-chat`.
+- The chat runtime is Socket.IO based and lives under `packages/server/src/modules/studio/sockets/chat-run.ts`; the Hermes bridge lives under `packages/server/src/modules/hermes/services/bridge`.
 - Web UI state lives under `HERMES_WEB_UI_HOME` or `HERMES_WEBUI_STATE_DIR`, defaulting to `~/.hermes-web-ui`.
+- The active agent runtime is Hermes only. Removed runtimes stay readable in
+  `PersistedAgentRuntime` for historical sessions, and new runs for them are
+  rejected with a read-only error.
 
 ## Coding Rules
 
@@ -75,15 +78,13 @@ npm run build
 
 ## npm Publishing
 
-The source package is `ekko-studio`. `npm run build` followed by
-`npm run pack:npm -- /absolute/output/directory` creates both `ekko-studio` and
-`hermes-web-ui` tarballs with the same version and build. Each tarball carries
-its own package name; the source manifest is not rewritten. Both expose
-`ekko-studio-web` and the existing CLI aliases.
+The package is `hermes-web-ui`. `npm run build` followed by
+`npm run pack:npm -- /absolute/output/directory` creates the tarball with the
+same version and build. It exposes the `hermes-web-ui` CLI and its aliases.
 
 For a local release, first set an unpublished version and log in with `npm login`.
-Then run `npm run publish:npm` to build, pack, and publish both packages using
-your local npm credentials. It does not bump the version or create a Git tag.
+Then run `npm run publish:npm` to build, pack, and publish using your local npm
+credentials. It does not bump the version or create a Git tag.
 
 ```bash
 npm run publish:npm -- --dry-run # Build and pack; only print publish commands
@@ -99,27 +100,24 @@ still request login or publication approval according to the account settings.
 
 `.github/workflows/npm-publish.yml` runs on published GitHub Releases or manually
 with an existing tag matching `package.json`'s version (optionally prefixed by
-`v`). It builds and verifies both packages once, then publishes each in a
-separate job. Stable releases use `latest`; prerelease versions or GitHub
-prerelease events use `next`. If only one publish fails, rerun the failed job.
+`v`). It builds and verifies the package once, then publishes it. Stable releases
+use `latest`; prerelease versions or GitHub prerelease events use `next`. If the
+publish job fails, rerun it.
 
 Configure repository Actions secret `NPM_TOKEN` with publish permission for
-**both** packages (including permission to create `ekko-studio` on its first
-release) and non-interactive publishing enabled. Only the publish jobs receive
-the token. Existing npm versions cannot be overwritten.
+`hermes-web-ui` and non-interactive publishing enabled. Only the publish job
+receives the token. Existing npm versions cannot be overwritten.
 
 Web UI update checks and CLI/Web UI upgrades read the running installation's
 package name, update that package, and restart its CLI by absolute package path.
-Shared data stays under `~/.hermes-web-ui`. The packages provide overlapping
-command aliases and are intended as alternative installations, not simultaneous
-global installs; uninstall the previous package before switching names.
+Shared data stays under `~/.hermes-web-ui`.
 
 ## Commit And PR Rules
 
 - Branch from `main` for new work.
 - Use short, descriptive branch names such as `codex/fix-login-token` or `feat/group-chat-copy`.
 - Commit only files that belong to the change.
-- Use concise commit messages that describe the change, for example `fix login token storage` or `add group chat clone naming`.
+- Use concise commit messages that describe the change, for example `fix login token storage` or `add session clone naming`.
 - Keep commits focused. Do not bundle unrelated cleanup with feature work unless the cleanup is required.
 - Push the branch and open a PR against `main` unless the issue explicitly targets another base.
 - Prefer draft PRs while validation is still running or when the change needs review before merge.
