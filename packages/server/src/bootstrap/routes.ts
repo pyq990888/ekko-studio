@@ -18,7 +18,6 @@ import {
 
 // Studio and agent route modules composed into one HTTP application.
 import { uploadRoutes } from '../modules/studio/routes/upload'
-import { appUploadRoutes } from '../modules/studio/routes/app-upload'
 import { authPublicRoutes, authProtectedRoutes } from '../modules/studio/routes/auth'
 
 import { sessionRoutes } from '../modules/studio/routes/sessions'
@@ -84,7 +83,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(authProtectedRoutes.routes())
   app.use(appConnectionRoutes.routes())
   app.use(uploadRoutes.routes())
-  app.use(appUploadRoutes.routes())
   app.use(updateRoutes.routes())           // Must be before proxy (proxy catch-all matches everything)
   app.use(codingAgentRoutes.routes())
   app.use(agentStatusRoutes.routes())

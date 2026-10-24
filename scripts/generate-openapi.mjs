@@ -62,7 +62,6 @@ const tagMappings = {
   'modules/hermes/routes/minimax-auth.ts': { name: 'MiniMax Auth', description: 'MiniMax OAuth' },
   'modules/hermes/routes/config.ts': { name: 'Config', description: 'Configuration management' },
   'modules/studio/routes/files.ts': { name: 'Studio Files', description: 'Studio profile file browser and editor' },
-  'modules/studio/routes/app-upload.ts': { name: 'Studio Files', description: 'Studio App chunked uploads' },
   'modules/studio/routes/download.ts': { name: 'Studio Files', description: 'Studio file download' },
   'modules/hermes/routes/mcp.ts': { name: 'MCP', description: 'MCP server and tool management' },
   'modules/hermes/routes/runtime-versions.ts': { name: 'Runtime Versions', description: 'Runtime and Web UI version management' },

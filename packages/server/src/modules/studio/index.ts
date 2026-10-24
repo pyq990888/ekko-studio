@@ -1,7 +1,6 @@
 export { apiDocsRoutes } from './routes/api-docs'
 export { updateRoutes } from './routes/update'
 export { themeRoutes } from './routes/theme'
-export { appUploadRoutes } from './routes/app-upload'
 export { downloadRoutes } from './routes/download'
 export { fileRoutes } from './routes/files'
 export { uploadRoutes } from './routes/upload'
