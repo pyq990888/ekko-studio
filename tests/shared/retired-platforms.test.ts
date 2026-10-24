@@ -10,9 +10,11 @@ describe('supported packaging targets', () => {
       expect(existsSync(path)).toBe(false)
     }
   })
-  it('retains desktop, Docker and Web UI release targets and the shared privacy notice', () => {
-    for (const path of ['Dockerfile', '.github/workflows/desktop-release.yml', '.github/workflows/webui-release.yml', 'PRIVACY.md']) {
+  it('retains Docker and Web UI release targets and the shared privacy notice', () => {
+    for (const path of ['Dockerfile', '.github/workflows/webui-release.yml', '.github/workflows/docker-publish.yml', 'PRIVACY.md']) {
       expect(existsSync(path)).toBe(true)
     }
+    // Desktop packaging was removed with the Electron wrapper.
+    expect(existsSync('.github/workflows/desktop-release.yml')).toBe(false)
   })
 })

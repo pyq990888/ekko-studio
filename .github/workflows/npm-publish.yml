@@ -47,8 +47,8 @@ jobs:
           node <<'NODE'
           const { appendFileSync } = require('node:fs')
           const { name, version, private: isPrivate } = require('./package.json')
-          if (name !== 'ekko-studio' || isPrivate) {
-            throw new Error('Expected the public ekko-studio source package')
+          if (name !== 'hermes-web-ui' || isPrivate) {
+            throw new Error('Expected the public hermes-web-ui source package')
           }
           if (![version, `v${version}`].includes(process.env.RELEASE_TAG)) {
             throw new Error(`Release tag must match package version ${version}`)
@@ -69,11 +69,11 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Pack and verify both npm packages
+      - name: Pack and verify the npm package
         run: |
           npm run pack:npm -- "$RUNNER_TEMP/npm-packages"
 
-      - name: Upload verified npm packages
+      - name: Upload verified npm package
         uses: actions/upload-artifact@v4
         with:
           name: npm-packages
@@ -84,12 +84,8 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [ekko-studio, hermes-web-ui]
     steps:
-      - name: Download verified npm packages
+      - name: Download verified npm package
         uses: actions/download-artifact@v4
         with:
           name: npm-packages
@@ -104,7 +100,7 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PACKAGE_TARBALL: ./npm-packages/${{ matrix.package }}-${{ needs.build.outputs.version }}.tgz
+          PACKAGE_TARBALL: ./npm-packages/hermes-web-ui-${{ needs.build.outputs.version }}.tgz
           NPM_DIST_TAG: ${{ needs.build.outputs.dist_tag }}
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then

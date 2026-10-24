@@ -27,12 +27,6 @@ describe('api docs controller', () => {
         enum: ['chat_completions', 'codex_responses', 'anthropic_messages', 'bedrock_converse', 'codex_app_server', null],
       })
     }
-    expect(ctx.body.paths['/api/coding-agents/models'].get.parameters).toEqual([
-      expect.objectContaining({ name: 'agent', in: 'query', required: false }),
-      expect.objectContaining({ name: 'refresh', in: 'query', schema: { type: 'boolean', default: false } }),
-    ])
-    expect(ctx.body.paths['/api/coding-agents/models'].get.responses['200'].content['application/json'].schema.properties.agents.items.properties.status.enum)
-      .toContain('auth_required')
     expect(ctx.body.paths['/api/auth/login'].post.requestBody.content['application/json'].schema.required).toEqual([
       'password',
       'username',

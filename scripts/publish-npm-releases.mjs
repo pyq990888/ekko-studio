@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { packNpmReleases } from './pack-npm-releases.mjs'
 
-const packageNames = ['ekko-studio', 'hermes-web-ui']
+const packageNames = ['hermes-web-ui']
 
 export function parsePublishOptions(args) {
   const options = { dryRun: false, help: false, packageName: null, tag: null }
@@ -30,14 +30,13 @@ export function parsePublishOptions(args) {
 export function publishNpmReleases(rootDir, options, npmCli = process.env.npm_execpath) {
   if (!npmCli) throw new Error('Run this script with npm run publish:npm')
   const metadata = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'))
-  if (metadata.name !== 'ekko-studio' || metadata.private) throw new Error('Expected the public ekko-studio source package')
+  if (metadata.name !== 'hermes-web-ui' || metadata.private) throw new Error('Expected the public hermes-web-ui source package')
   const tag = options.tag || (metadata.version.includes('-') ? 'next' : 'latest')
   const runNpm = args => execFileSync(process.execPath, [npmCli, ...args], { cwd: rootDir, stdio: 'inherit' })
   runNpm(['run', 'build'])
   const outputDir = join(rootDir, 'release', 'npm')
   const packages = packNpmReleases(rootDir, outputDir, npmCli)
-    .filter(pkg => !options.packageName || pkg.name === options.packageName)
-  for (const [index, pkg] of packages.entries()) {
+  for (const pkg of packages) {
     const args = ['publish', join(outputDir, pkg.filename), '--access', 'public', '--tag', tag,
       '--ignore-scripts', '--registry', 'https://registry.npmjs.org']
     if (options.dryRun) {
@@ -45,19 +44,11 @@ export function publishNpmReleases(rootDir, options, npmCli = process.env.npm_ex
       continue
     }
     console.log(`Publishing ${pkg.name}@${pkg.version} to ${tag}...`)
-    try {
-      runNpm(args)
-    } catch (error) {
-      console.error(`Publishing ${pkg.name} failed. After resolving the npm error, retry with:`)
-      for (const pending of packages.slice(index)) {
-        console.error(`npm run publish:npm -- --package ${pending.name} --tag ${tag}`)
-      }
-      throw error
-    }
+    runNpm(args)
   }
   console.log(options.dryRun
-    ? 'Dry run complete: built and verified tarballs; no npm publish command was executed.'
-    : 'npm publish commands completed. Check npm output for any required publication approval.')
+    ? 'Dry run complete: built and verified the tarball; no npm publish command was executed.'
+    : 'npm publish command completed. Check npm output for any required publication approval.')
 }
 
 const scriptPath = fileURLToPath(import.meta.url)
@@ -65,9 +56,9 @@ if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
   try {
     const options = parsePublishOptions(process.argv.slice(2))
     if (options.help) {
-      console.log('Usage: npm run publish:npm -- [--dry-run] [--package ekko-studio|hermes-web-ui] [--tag latest|next|...]')
-      console.log('Build once, pack both names, and publish using your local npm login. Does not change the version.')
-      console.log('--dry-run builds and packs, then prints publish commands without executing them.')
+      console.log('Usage: npm run publish:npm -- [--dry-run] [--tag latest|next|...]')
+      console.log('Build once, pack hermes-web-ui, and publish using your local npm login. Does not change the version.')
+      console.log('--dry-run builds and packs, then prints the publish command without executing it.')
     } else {
       publishNpmReleases(resolve(dirname(scriptPath), '..'), options)
     }
