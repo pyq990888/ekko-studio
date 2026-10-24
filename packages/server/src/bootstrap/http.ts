@@ -14,9 +14,7 @@ import { setupTerminalWebSocket } from '../modules/hermes/sockets/terminal'
 import { setupKanbanEventsWebSocket } from '../modules/hermes/sockets/kanban-events'
 import { startVersionCheck } from './health'
 import { registerRoutes } from './routes'
-import { dshPluginUi } from '../modules/coding-agents/services'
 import './chat-agent-runtime-adapter'
-import './skill-files-adapter'
 import { setChatRunServer } from '../modules/studio/public/chat-run'
 import { ChatRunSocket } from '../modules/studio/sockets/chat-run'
 import { startChatWebhookDispatcher } from '../modules/studio/services/webhooks'
@@ -40,14 +38,7 @@ import {
   writeBadUpgradeRequest,
 } from '../modules/studio/middleware/security'
 import type { AdditionalShutdownStep, ShutdownHandler } from './lifecycle'
-import { createCodexProxyRequestBodyParser, createRequestBodyParser } from '../modules/studio/middleware/request-body-parser'
-import {
-  getCodingAgentsStatus,
-  migratePersistedPiRuntimeMcpConfigs,
-  restorePersistedCodexProxyTargets,
-  restorePersistedPiProxyTargets,
-} from './coding-agents'
-import { isAuthorizedCodexProxyRequest } from '../modules/coding-agents/services/codex/proxy'
+import { createRequestBodyParser } from '../modules/studio/middleware/request-body-parser'
 import {
   configurePreferredHermesRuntime,
   readLockedDesktopHermesSelection,
@@ -346,10 +337,9 @@ export async function bootstrap() {
   }
   console.log(`[bootstrap] Hermes source=${hermesSelection.source} version=${hermesSelection.version || '-'} path=${hermesSelection.path || '-'} python=${hermesSelection.pythonPath || '-'} root=${hermesSelection.agentRoot || '-'}`)
   if (lockedDesktopSelection) recordLockedHermesSelection(hermesSelection)
-  updateAgentStatus('ekko-agent', { version: APP_VERSION })
+  updateAgentStatus('hermes', { version: APP_VERSION })
   const inventoryResults = await Promise.allSettled([
     ...(!lockedDesktopSelection ? [getRuntimeVersionStatus({ includeRemote: false })] : []),
-    getCodingAgentsStatus(),
   ])
   for (const result of inventoryResults) {
     if (result.status === 'rejected') {
@@ -390,54 +380,6 @@ export async function bootstrap() {
     console.warn('[bootstrap] failed to inject bundled MCP server:', err instanceof Error ? err.message : err)
   }
 
-  try {
-    const migratedPiMcpConfigs = await migratePersistedPiRuntimeMcpConfigs()
-    if (migratedPiMcpConfigs > 0) {
-      console.log(`[bootstrap] migrated ${migratedPiMcpConfigs} persisted Pi MCP runtime config(s) to proxy mode`)
-    }
-  } catch (err) {
-    logger.warn(err, '[bootstrap] failed to migrate persisted Pi MCP runtime configs')
-  }
-
-  try {
-    const restoredCodexProxyTargets = await restorePersistedCodexProxyTargets()
-    if (restoredCodexProxyTargets > 0) {
-      console.log(`[bootstrap] restored ${restoredCodexProxyTargets} persisted Codex/Grok proxy target(s)`)
-    }
-  } catch (err) {
-    logger.warn(err, '[bootstrap] failed to restore persisted Codex/Grok proxy targets')
-  }
-
-  try {
-    const restoredPiProxyTargets = await restorePersistedPiProxyTargets()
-    if (restoredPiProxyTargets > 0) {
-      console.log(`[bootstrap] restored ${restoredPiProxyTargets} persisted Pi proxy target(s)`)
-    }
-  } catch (err) {
-    logger.warn(err, '[bootstrap] failed to restore persisted Pi proxy targets')
-  }
-
-  try {
-    const ekkoSetup = setupGlobalEkkoAgent()
-    try {
-      const injection = injectManagedEkkoMcpServers(ekkoSetup)
-      const changed = injection.targets.filter(target => target.status === 'injected' || target.status === 'updated')
-      if (changed.length > 0) {
-        logger.info({
-          serverNames: injection.serverNames,
-          targets: changed,
-        }, '[bootstrap] Studio MCP servers injected into Ekko config')
-      }
-    } catch (err) {
-      logger.warn(err, '[bootstrap] failed to inject Studio MCP servers into Ekko config')
-      console.warn('[bootstrap] failed to inject Studio MCP servers into Ekko config:', err instanceof Error ? err.message : err)
-    }
-    console.log('[bootstrap] ekko-agent setup complete')
-  } catch (err) {
-    logger.error(err, '[bootstrap] ekko-agent setup failed; continuing with Ekko unavailable')
-    console.error('[bootstrap] ekko-agent setup failed; continuing without Ekko:', err instanceof Error ? err.message : err)
-  }
-
   agentBridgeManager = getAgentBridgeManager()
   if (!isDesktopRuntime()) {
     await startRuntimeServicesBeforeListen(hermesAgentAvailable)
@@ -457,13 +399,8 @@ export async function bootstrap() {
 
   app.use(securityHeaders())
   app.use(cors({ origin: createCorsOriginResolver(config.corsOrigins) }))
-  // Codex can replay inline images from its native thread. Accept a bounded,
-  // authenticated request here so the proxy can remove historical image data
-  // before dispatching to any provider API mode.
-  app.use(createCodexProxyRequestBodyParser(isAuthorizedCodexProxyRequest))
-  app.use(dshPluginUi.middleware)
-  // Raise body limits above the default 1mb: profile avatars and MiMo voice-clone
-  // reference audio are posted as base64 data URLs before reaching handlers.
+  // Raise body limits above the default 1mb: profile avatars are posted as
+  // base64 data URLs before reaching handlers.
   app.use(createRequestBodyParser())
   console.log('[bootstrap] cors + bodyParser registered')
 
@@ -504,8 +441,6 @@ export async function bootstrap() {
   bootstrapReady = true
   console.log('[bootstrap] web UI shell ready')
 
-  const closeDshPluginUi = dshPluginUi.attach(servers)
-  additionalShutdownSteps.push({ name: 'DSH plugin UI transport', close: closeDshPluginUi })
   const terminalWebSocket = setupTerminalWebSocket(servers)
   if (terminalWebSocket) {
     additionalShutdownSteps.push({
@@ -550,8 +485,7 @@ export async function bootstrap() {
         writeBadUpgradeRequest(socket)
         return
       }
-      if (!dshPluginUi.handlesUpgrade(req) &&
-        url.pathname !== '/api/hermes/terminal' &&
+      if (url.pathname !== '/api/hermes/terminal' &&
         url.pathname !== '/api/hermes/kanban/events' &&
         !url.pathname.startsWith('/socket.io/')) {
         socket.destroy()

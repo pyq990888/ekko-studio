@@ -7,11 +7,6 @@ import { apiDocsRoutes } from '../modules/studio'
 import { healthRoutes } from './health'
 import { updateRoutes } from './update'
 import { themeRoutes } from '../modules/studio/routes/theme'
-import {
-  claudeCodeProxyRoutes,
-  codexProxyRoutes,
-  codingAgentRoutes,
-} from './coding-agents'
 
 // Studio and agent route modules composed into one HTTP application.
 import { uploadRoutes } from '../modules/studio/routes/upload'
@@ -64,8 +59,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   // --- Public routes (no auth required) ---
   app.use(healthRoutes.routes())
   app.use(authPublicRoutes.routes())
-  app.use(claudeCodeProxyRoutes.routes())
-  app.use(codexProxyRoutes.routes())
   app.use(apiDocsRoutes.routes())
   app.use(chatWebhookPublicRoutes.routes())
 
@@ -76,7 +69,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(authProtectedRoutes.routes())
   app.use(uploadRoutes.routes())
   app.use(updateRoutes.routes())           // Must be before proxy (proxy catch-all matches everything)
-  app.use(codingAgentRoutes.routes())
   app.use(agentStatusRoutes.routes())
   app.use(themeRoutes.routes())
   app.use(sessionRoutes.routes())

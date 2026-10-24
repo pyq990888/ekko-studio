@@ -19,43 +19,11 @@ import {
   type SessionAgentRuntimeDependencies,
 } from '../modules/studio/public/session-agent-runtime'
 
-// Legacy coding-agent hooks. Phase 2 deletes this import block and the
-// `resolveCodingAgentSessionRuntime()` seam below.
-import { codingAgentRunManager } from '../modules/coding-agents/services/runtime/run-manager'
-import { getCodingAgentModels } from '../modules/coding-agents/services'
-import { validateNativeModelEffort } from '../modules/coding-agents/services/models/variants'
-
-type CodingAgentSessionRuntimeDependencies = Pick<
-  SessionAgentRuntimeDependencies,
-  'stopCodingAgentSessionRun' | 'invalidateCodingAgentSessionRuntime' | 'validateCodingAgentModelEffort'
->
-
 /**
- * Optional legacy seam: return the coding-agent session hooks only when the
- * coding-agent runtime is present. Hermes history/model behavior never calls
- * into this object.
- */
-function resolveCodingAgentSessionRuntime(): CodingAgentSessionRuntimeDependencies | null {
-  if (typeof codingAgentRunManager?.stop !== 'function') return null
-  if (typeof getCodingAgentModels !== 'function' || typeof validateNativeModelEffort !== 'function') return null
-
-  return {
-    stopCodingAgentSessionRun: (sessionId, options) => codingAgentRunManager.stop(sessionId, options),
-    invalidateCodingAgentSessionRuntime: (sessionId, agentId = 'grok') => codingAgentRunManager.invalidateMatching(
-      launch => launch.sessionId === sessionId && launch.agentId === agentId,
-    ),
-    validateCodingAgentModelEffort: async (agent, currentModel, nextModel, effort) => {
-      const result = await getCodingAgentModels({ agent })
-      const catalog = result.agents.find(entry => entry.agentId === agent)
-      if (catalog?.status !== 'ready') throw Object.assign(new Error('Native model catalog unavailable'), { status: 503 })
-      validateNativeModelEffort(catalog.models, currentModel, nextModel, effort)
-    },
-  }
-}
-
-/**
- * Transitional stubs keep the public session facade total while the coding
- * runtime is absent. Phase 2 removes the coding fields and these stubs.
+ * Removed coding-agent session hooks. The public session facade keeps these
+ * fields total so historical `coding_agent` sessions stay readable; calling them
+ * for a new run is impossible because `sockets/chat-run.ts` rejects removed
+ * runtimes before dispatch.
  */
 function unavailableCodingAgentSessionRuntime(): Pick<
   SessionAgentRuntimeDependencies,
@@ -70,10 +38,8 @@ function unavailableCodingAgentSessionRuntime(): Pick<
   }
 }
 
-const codingAgentSessionRuntime = resolveCodingAgentSessionRuntime()
-
 configureSessionAgentRuntime({
-  ...(codingAgentSessionRuntime ?? unavailableCodingAgentSessionRuntime()),
+  ...unavailableCodingAgentSessionRuntime(),
   getAvailableModelGroups: getAvailableModelGroupsForProfile,
   deleteHermesSessionForProfile: deleteSessionForProfile,
   getHermesCliSession: getSession,

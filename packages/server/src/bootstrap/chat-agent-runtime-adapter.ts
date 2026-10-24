@@ -1,5 +1,5 @@
-// Hermes bridge dependencies. This import block is the mandatory seam for the
-// Hermes-only chat runtime.
+// Hermes bridge dependencies. This is the mandatory seam for the Hermes-only
+// chat runtime; every other agent family has been removed.
 import './agent-profile-adapter'
 import { AgentBridgeClient } from '../modules/hermes/services/bridge/client'
 import { getAgentBridgeManager } from '../modules/hermes/services/bridge/manager'
@@ -10,15 +10,8 @@ import {
   configureLegacyChatAgentRuntime,
 } from '../modules/studio/public/chat-agent-runtime'
 
-// Legacy Ekko/coding-agent dependencies. Phase 2 deletes this import block and
-// the `configureLegacyChatAgentRuntime(...)` call at the bottom of this file.
-import { getCodingAgentManagedMcpServerConfigs, type CodingAgentId } from '../modules/coding-agents/services'
-import { codingAgentRunManager } from '../modules/coding-agents/services/runtime/run-manager'
-import { sendCodingAgentRunInput, startCodingAgentRun } from '../modules/coding-agents'
-import {
-  handleCodingAgentSessionCommand,
-  parseCodingAgentSessionCommand,
-} from '../modules/coding-agents/services/session-command'
+// Legacy Ekko dependencies. The Ekko removal task deletes this import block and
+// the `configureLegacyChatAgentRuntime(...)` call below.
 import {
   abortGlobalEkkoBackgroundTasks,
   getGlobalEkkoAgent,
@@ -49,13 +42,8 @@ configureChatAgentRuntime({
 })
 
 // Legacy seam: Hermes chat does not require any of these. Kept registered for
-// current behavior; Phase 2 drops this call and the import block above.
+// current behavior; the Ekko removal task drops this call and its import block.
 configureLegacyChatAgentRuntime({
-  codingAgentRunManager,
-  sendCodingAgentRunInput,
-  startCodingAgentRun,
-  handleCodingAgentSessionCommand,
-  parseCodingAgentSessionCommand,
   getEkkoAgent: getGlobalEkkoAgent,
   abortEkkoBackgroundTasks: abortGlobalEkkoBackgroundTasks,
   hasEkkoBackgroundTasks: hasGlobalEkkoBackgroundTasks,
@@ -67,7 +55,6 @@ configureLegacyChatAgentRuntime({
   serializeEkkoAgentReasoningDetails: serializeAgentReasoningDetails,
   waitForEkkoToolApproval,
   waitForEkkoClarification,
-  getCodingAgentMcpServers: (id, profile) => getCodingAgentManagedMcpServerConfigs(id as CodingAgentId, profile),
   resolveEkkoMcpServers,
   resolveEkkoProviderRuntimeConfig,
   createEkkoAuthorizedProviderFetch,
