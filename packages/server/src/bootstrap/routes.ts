@@ -24,7 +24,6 @@ import { authPublicRoutes, authProtectedRoutes } from '../modules/studio/routes/
 import { mcuDevicePublicRoutes, mcuDeviceRoutes } from '../modules/studio/routes/mcu-devices'
 
 import { sessionRoutes } from '../modules/studio/routes/sessions'
-import { sessionSharePublicRoutes, sessionShareRoutes } from '../modules/studio/routes/session-shares'
 import { profileRoutes } from '../modules/hermes/routes/profiles'
 import { skillRoutes } from '../modules/hermes/routes/skills'
 import { skillBundleRoutes } from '../modules/hermes/routes/skill-bundles'
@@ -86,7 +85,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(apiDocsRoutes.routes())
   app.use(petdexPublicRoutes.routes())
   app.use(groupChatPublicRoutes.routes())
-  app.use(sessionSharePublicRoutes.routes())
   app.use(chatWebhookPublicRoutes.routes())
 
   // --- Auth middleware: all routes below require authentication ---
@@ -104,7 +102,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(themeRoutes.routes())
   app.use(appRelayRoutes.routes())
   app.use(sessionRoutes.routes())
-  app.use(sessionShareRoutes.routes())
   app.use(profileRoutes.routes())
   app.use(ekkoMemoryRoutes.routes())
   app.use(ekkoSkillRoutes.routes())

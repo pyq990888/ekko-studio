@@ -1,7 +1,5 @@
 import { withRunUsage, onRunUsageUpdated } from '../repositories/run-usage-store'
 import { recordSessionUploadAttachments } from '../services/files/session-uploads'
-import { authenticateSessionShare, socketShareToken, assertShareProfile, sessionShareExecutionUser, refreshSessionShare, type SessionShareAccess } from '../services/session-shares/access'
-import { bindSessionShareSocket } from '../services/session-shares/socket-access'
 import { hermesStudioMcpCapabilities } from '../services/chat-run/studio-mcp'
 import { publishAppState, stateEvent, planStateEvent } from '../services/webhooks/app-event-state'
 import type { BusinessEvent } from '../services/webhooks/business-events'
@@ -702,17 +700,6 @@ export class ChatRunSocket {
 
   private async authMiddleware(socket: Socket, next: (err?: Error) => void) {
     const token = socket.handshake.auth?.token as string | undefined
-    const shareToken = socketShareToken(socket.handshake.auth)
-    if (shareToken) {
-      try {
-        const access = await authenticateSessionShare(shareToken, String(socket.handshake.auth?.appAccessToken || ''))
-        assertShareProfile(access, socket.handshake.query?.profile)
-        socket.handshake.query.profile = access.share.profile
-        socket.data.sessionShare = access
-        socket.data.user = sessionShareExecutionUser(access)
-        return next()
-      } catch (error) { return next(error instanceof Error ? error : new Error('share_access_denied')) }
-    }
     const appToken = token ? await inspectAppUserToken(token) : null
     if (appToken) {
       if (appToken.status !== 'active' || !appToken.user) return next(new Error('App device authentication failed'))
@@ -747,21 +734,7 @@ export class ChatRunSocket {
   // --- Connection handler ---
 
   private onConnection(socket: Socket) {
-    const shared = socket.data.sessionShare as SessionShareAccess | undefined
-    if (shared) bindSessionShareSocket(socket, shared, () => {
-      const state = this.sessionMap.get(shared.share.session_id)
-      if (!state) return
-      state.queue = state.queue.filter(item => item.originSocketId !== socket.id)
-      if (state.queueInsertion && !state.queue.some(item => item.queue_id === state.queueInsertion?.queueId)) {
-        this.clearQueueInsertion(shared.share.session_id, state, 'share_access_denied')
-      }
-      this.nsp.to(`session:${shared.share.session_id}`).emit('run.queued', {
-        event: 'run.queued', session_id: shared.share.session_id,
-        queue_length: state.queue.length, queued_messages: this.serializeQueuedMessages(state.queue),
-      })
-    })
-    if (!shared) {
-      bindAppEventSubscription(socket, (_user, profile) => {
+    bindAppEventSubscription(socket, (_user, profile) => {
         const result: BusinessEvent[] = []
         for (const [sessionId, state] of this.sessionMap) {
           if (!state.isWorking || (state.profile || getSession(sessionId)?.profile || 'default') !== profile) continue
@@ -801,18 +774,17 @@ export class ChatRunSocket {
         return Boolean(user && this.canAccessProfile(user, event.profile)
           && socket.rooms.has(`pending-interactions:${event.profile}`))
       })
-    }
     const socketUser = socket.data.user as AuthenticatedUser | undefined
     const socketProfile = (socket.handshake.query?.profile as string) || 'default'
     const currentProfile = () => socketProfile || getActiveProfileName() || 'default'
     const mobileTarget = socket.data.mobileDeviceTarget as MobileDeviceTarget | undefined
     if (mobileTarget) socket.join(mobileDeviceRoom(mobileTarget))
-    if (!shared) { socket.join('studio-account'); socket.join(`pending-interactions:${currentProfile()}`) }
+    socket.join('studio-account'); socket.join(`pending-interactions:${currentProfile()}`)
     socket.emit('session.activity.snapshot', {
       event: 'session.activity.snapshot',
       profile: currentProfile(),
       sessions: Array.from(this.sessionMap.entries()).flatMap(([sessionId, state]) => {
-        if (!state.isWorking || (shared && sessionId !== shared.share.session_id)) return []
+        if (!state.isWorking) return []
         const profile = state.profile || getSession(sessionId)?.profile || 'default'
         return profile === currentProfile() ? [{ session_id: sessionId, status: 'running' }] : []
       }),
@@ -911,7 +883,7 @@ export class ChatRunSocket {
       let runProfile: string
       try {
         runProfile = resolveRunProfile(data.session_id, data.profile)
-        if (!shared && data.session_id && Array.isArray(data.input)) {
+        if (data.session_id && Array.isArray(data.input)) {
           // New chats carry a client-generated id; the runtime persists them on the first run.
           if (getSession(data.session_id)) requireSocketSessionAccess(data.session_id, runProfile)
           await recordSessionUploadAttachments(data.session_id, runProfile, data.input, { allowPendingSession: true })
@@ -971,7 +943,7 @@ export class ChatRunSocket {
           return
         }
         try {
-          const actor = shared ? null : await authenticatedPushActor(socket.handshake.auth?.token)
+          const actor = await authenticatedPushActor(socket.handshake.auth?.token)
           if (actor) {
             const target = bindRunPushTarget({ kind: 'chat', profile: runProfile, runId: randomUUID() }, data.session_id, actor, {
               ciphertext: prepareRunPushSnapshot(actor, pushSnapshot),
@@ -1008,7 +980,6 @@ export class ChatRunSocket {
             commandPassthrough: data.allow_command_passthrough,
             reasoningEffort: data.reasoning_effort,
             originSocketId: socket.id,
-            authorize: shared ? async () => { await refreshSessionShare(shared, 'input', data.session_id) } : undefined,
             pushTargetId,
           })
           const queuedPayload = {
@@ -1190,7 +1161,6 @@ export class ChatRunSocket {
         return
       }
       try {
-        if (shared && !buildResumeEvents(this.sessionMap.get(data.session_id)?.events || []).some(entry => entry.event === 'approval.requested' && entry.data?.approval_id === data.approval_id)) throw new Error('Approval does not belong to this session')
         const result = await this.bridge.approvalRespond(data.approval_id, data.choice || 'deny')
         const resolved = Boolean(result.resolved)
         this.emitToSession(socket, data.session_id, 'approval.resolved', {
@@ -1237,7 +1207,6 @@ export class ChatRunSocket {
         return
       }
       try {
-        if (shared && !buildResumeEvents(this.sessionMap.get(data.session_id)?.events || []).some(entry => entry.event === 'clarify.requested' && entry.data?.clarify_id === data.clarify_id)) throw new Error('Clarification does not belong to this session')
         const result = await this.bridge.clarifyRespond(data.clarify_id, data.response || '')
         const resolved = Boolean((result as any)?.resolved)
         this.emitToSession(socket, data.session_id, 'clarify.resolved', {
@@ -1855,9 +1824,9 @@ export class ChatRunSocket {
       taskPlans,
       parentSessionId: sessionDetail?.parent_session_id || null,
       forkPointMessageId: sessionDetail?.fork_point_message_id || null,
-      parentTitle: socket.data?.sessionShare ? null : sessionDetail?.parent_title || null,
-      parentLastMessage: socket.data?.sessionShare ? null : sessionDetail?.parent_last_message || null,
-      parentLastMessageRole: socket.data?.sessionShare ? null : sessionDetail?.parent_last_message_role || null,
+      parentTitle: sessionDetail?.parent_title || null,
+      parentLastMessage: sessionDetail?.parent_last_message || null,
+      parentLastMessageRole: sessionDetail?.parent_last_message_role || null,
       workspace: sessionDetail?.workspace || null,
       model: sessionDetail?.model || '',
       provider: sessionDetail?.provider || '',
