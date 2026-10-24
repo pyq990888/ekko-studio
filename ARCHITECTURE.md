@@ -1,8 +1,8 @@
 # Architecture
 
-Ekko Studio is a TypeScript monorepo that ships a local-first AI workspace
-through a web console, a Koa backend, and an Electron desktop app. It integrates
-Ekko Agent, Hermes Agent, and coding agents for chat, coding, and workflows.
+Hermes WebUI is a TypeScript monorepo that ships a server-hosted Web UI for
+Hermes Agent: a Vue client, a Koa backend with Socket.IO, and a Docker image.
+The server integrates the Hermes Agent runtime through a Python bridge.
 
 ## Package Boundaries
 
@@ -10,10 +10,10 @@ Ekko Agent, Hermes Agent, and coding agents for chat, coding, and workflows.
 | --- | --- | --- |
 | Client | `packages/client/src` | Vue UI, routing, Pinia stores, API wrappers, i18n, browser-visible state. |
 | Server | `packages/server/src` | HTTP API, auth, Socket.IO, SQLite stores, file access, Hermes runtime integration. |
-| Ekko Agent | `packages/ekko-agent` | Canonical Ekko runtime, profile facade, providers, tools, memory, skills, conversations, and package API. |
-| Desktop | `packages/desktop` | Electron shell, local Web UI server bootstrap, updater, bundled Python/Hermes runtime. |
+| Shared | `packages/shared` | Small helpers used by both client and server. |
+| Skills | `packages/skills` | Bundled Hermes `SKILL.md` files injected into profiles. |
 | Tests | `tests` | Vitest unit/integration tests and Playwright browser tests. |
-| CI | `.github/workflows` | Build, e2e, lockfile, Docker, and desktop release automation. |
+| CI | `.github/workflows` | Build, e2e, lockfile, Docker, and npm release automation. |
 
 ## Request Flow
 
@@ -22,7 +22,8 @@ Ekko Agent, Hermes Agent, and coding agents for chat, coding, and workflows.
 3. Server routes in `packages/server/src/modules/*/routes` wire HTTP paths to controllers.
 4. Controllers validate request concerns and delegate reusable behavior to services.
 5. Services own side effects: files, SQLite, Hermes profiles, subprocesses, bridges, and credentials.
-6. Long-running chat and group-chat flows use Socket.IO namespaces managed by server services.
+6. Long-running chat flows use the Socket.IO `/chat-run` namespace owned by
+   bootstrap and attached to by the Studio chat-run module.
 
 Keep each layer narrow. Routes should not grow business logic, and client code
 should not duplicate server persistence rules.
@@ -35,20 +36,24 @@ should not duplicate server persistence rules.
 - Uploads default to `config.uploadDir`, which is derived from the Web UI home unless `UPLOAD_DIR` is set.
 - Runtime data directories must also live under the Web UI home, not beside built `dist` assets.
 - Profile-scoped Hermes data should use existing profile helpers instead of manually joining paths.
+- SQLite tables for removed runtimes are intentionally left in place so existing
+  installations keep their history readable; they are never created for new
+  features and are never dropped automatically.
 
 ## Server Structure
 
-Server code is separated by business ownership under `modules/studio`,
-`modules/hermes`, `modules/ekko`, and `modules/coding-agents`; concrete module
-composition belongs in `bootstrap`.
-See `docs/harness/server-module-boundaries.md` for the complete target tree,
-ownership decisions, allowed dependency matrix, and migration rules.
+Server code is separated by business ownership under `modules/studio` and
+`modules/hermes`; concrete module composition belongs in `bootstrap`.
+See `docs/harness/server-module-boundaries.md` for the ownership decisions,
+allowed dependency matrix, and migration rules.
 
+- `bootstrap/realtime.ts` owns the single Socket.IO `Server`; feature modules only
+  attach namespaces.
 - Module `routes/` register HTTP entry points; `sockets/` own Socket.IO transports.
 - Module `controllers/` handle request-level behavior.
 - Module `services/` own reusable IO, domain behavior, processes, and integrations.
 - Studio `repositories/` and `infrastructure/` own application persistence.
-- Studio `middleware/legacy-app-api.ts` is the only released App and MCU firmware URL compatibility map.
+- Studio `middleware/legacy-app-api.ts` is the released-client URL compatibility map.
 
 Architecture rules:
 
@@ -56,6 +61,9 @@ Architecture rules:
 - Keep auth behavior under `packages/server/src/modules/studio/services/auth`.
 - Prefer `execFile` or `spawn` with argument arrays over shell command strings.
 - Use structured file and YAML/JSON parsers when editing structured data.
+- `ActiveAgentRuntime` is `hermes` only. Removed runtimes stay in
+  `PersistedAgentRuntime` so historical sessions keep resolving, but new runs are
+  rejected with a read-only error.
 
 ## Client Structure
 
@@ -73,25 +81,24 @@ Frontend rules:
 - Add visible text to all locale files.
 - Keep component styles scoped unless the style is intentionally global.
 
-## Desktop Release Flow
+## Release Flow
 
-Desktop packaging is intentionally split:
+- Pull requests run the web UI build, tests, and harness checks in
+  `.github/workflows/build.yml`.
+- Published GitHub Releases run Web UI artifact packaging and Docker image
+  publishing without marking the release as GitHub latest.
+- `.github/workflows/docker-publish.yml` publishes the server image.
+- `.github/workflows/npm-publish.yml` publishes the `hermes-web-ui` package.
 
-- Pull requests run the web UI build and tests in `.github/workflows/build.yml`.
-- Published GitHub Releases run Web UI artifact packaging and Docker image publishing without
-  marking the release as GitHub latest.
-- Manual dispatches run full desktop artifact packaging in `.github/workflows/desktop-release.yml`.
-- `.github/workflows/desktop-manual-build.yml` builds one desktop target for targeted repairs or re-runs.
-- Windows x64 and ARM64 use native runners and separate updater manifests
-  (`latest.yml` and `latest-arm64.yml`). See `packages/desktop/WINDOWS-ARM64.md`
-  for native speech staging and runtime acceptance.
-- Each release matrix target uploads only the artifact globs for its own platform.
-- A successful full desktop release marks the target GitHub Release as latest after all desktop artifacts
-  and the merged macOS updater manifest have been uploaded.
+## Hermes Runtime
 
-Do not make a Windows job require macOS `.dmg` files or a Linux job require
-Windows installers. Keep `fail_on_unmatched_files: true` where platform-specific
-artifact lists make the expectation explicit.
+The server discovers the Hermes Agent runtime from `HERMES_BIN`, an existing
+`hermes` CLI on `PATH`, or a managed runtime under the Web UI home. Hermes
+runtime downloads, activation, and version management live in
+`modules/hermes/services/runtime`; Web UI self-update lives in Studio.
+
+Docker images start from `nousresearch/hermes-agent` and only add the Node.js
+runtime plus this repository's build output.
 
 ### Desktop Hermes Runtime
 
