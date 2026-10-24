@@ -41,7 +41,7 @@ function captureDeployment(source) {
   if (!source?.isConnected) return null;
   const doc = source.ownerDocument;
   const win = doc.defaultView;
-  // Match NewChatAgentCards: system motion preferences do not hide or slow deployment.
+  // System motion preferences do not hide or slow deployment.
   if (doc.hidden || typeof win.requestAnimationFrame !== 'function') return null;
   const rect = source.getBoundingClientRect();
   if (rect.width < 1 || rect.height < 1) return null;

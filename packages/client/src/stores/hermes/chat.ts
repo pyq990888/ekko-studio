@@ -1435,12 +1435,6 @@ export const useChatStore = defineStore('chat', () => {
     setSessionProfileFilter(null)
   }
 
-  // 自动播放语音开关
-  const autoPlaySpeechEnabled = ref(false)
-
-  function setAutoPlaySpeech(enabled: boolean) {
-    autoPlaySpeechEnabled.value = enabled
-  }
   const isStreaming = computed(() => {
     const sid = activeSessionId.value
     if (sid == null) return false
@@ -4347,18 +4341,6 @@ export const useChatStore = defineStore('chat', () => {
               handleTerminalWorkspaceRunChange(sid, evt, terminalAssistantMessageId)
               attachWorkspaceChangesToMessages(sid)
 
-              // 自动播放语音
-              if (autoPlaySpeechEnabled.value && runProducedAssistantContent) {
-                const msgs = getSessionMsgs(sid)
-                const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant')
-                if (lastAssistant?.content) {
-                  // 延迟一小会儿再播放，确保 UI 更新完成
-                  setTimeout(() => {
-                    playMessageSpeech(lastAssistant.id, lastAssistant.content)
-                  }, 300)
-                }
-              }
-
               const hasQueue = (evt as any).queue_remaining > 0
               markSessionCompletedUnread(sid, hasQueue)
               if (hasQueue) {
@@ -4997,17 +4979,6 @@ export const useChatStore = defineStore('chat', () => {
           handleTerminalWorkspaceRunChange(sid, evt, terminalAssistantMessageId)
           attachWorkspaceChangesToMessages(sid)
 
-          // Auto-play speech for every completed assistant message
-          if (autoPlaySpeechEnabled.value && runProducedAssistantContent) {
-            const msgs = getSessionMsgs(sid)
-            const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant')
-            if (lastAssistant?.content) {
-              setTimeout(() => {
-                playMessageSpeech(lastAssistant.id, lastAssistant.content)
-              }, 300)
-            }
-          }
-
           if (!hasQueue && !hasBackground) {
             markSessionCompletedUnread(sid)
             cleanup()
@@ -5453,15 +5424,6 @@ export const useChatStore = defineStore('chat', () => {
     thinkingObservation.clear()
   }
 
-  // 播放消息语音
-  function playMessageSpeech(messageId: string, content: string) {
-    // 触发自定义事件，让 MessageItem 组件处理播放
-    const event = new CustomEvent('auto-play-speech', {
-      detail: { messageId, content }
-    })
-    window.dispatchEvent(event)
-  }
-
   return {
     sessions,
     runtimeMode,
@@ -5526,8 +5488,6 @@ export const useChatStore = defineStore('chat', () => {
     noteReasoningStart,
     noteReasoningEnd,
     clearThinkingObservationFor,
-    setAutoPlaySpeech,
-    playMessageSpeech,
     loadWorkspaceRunChangeFile,
     setSessionReasoningEffort,
     setSessionPushEnabled,
