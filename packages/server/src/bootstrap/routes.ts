@@ -11,7 +11,6 @@ import { healthRoutes } from './health'
 import { updateRoutes } from './update'
 import { themeRoutes } from '../modules/studio/routes/theme'
 import { appConnectionRoutes, appRelayRoutes } from './app-relay'
-import { socialMessageRoutes } from '../modules/studio/routes/social-messages'
 import {
   claudeCodeProxyRoutes,
   codexProxyRoutes,
@@ -106,7 +105,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(agentStatusRoutes.routes())
   app.use(themeRoutes.routes())
   app.use(appRelayRoutes.routes())
-  app.use(socialMessageRoutes.routes())
   app.use(sessionRoutes.routes())
   app.use(modelApiRoutes.routes())
   app.use(sessionShareRoutes.routes())

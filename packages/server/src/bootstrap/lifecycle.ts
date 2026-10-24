@@ -9,7 +9,6 @@ import { stopOutboundRelayClient } from '../modules/studio/public/global-agent'
 import { stopAppRelayClient } from '../modules/studio/services/app-relay/client'
 import { closeGlobalEkkoAgent } from '../modules/ekko/services/manager'
 import { stopChatWebhookDispatcher } from '../modules/studio/services/webhooks'
-import { shutdownSocialMessageRuntimes } from '../modules/studio/services/social-messages'
 import { stopPreviewRuntime } from './update'
 
 const DEFAULT_SHUTDOWN_FORCE_EXIT_MS = 10_000
@@ -139,7 +138,6 @@ export function createShutdownHandler(
         await runShutdownStep('DSH plugin operations', shutdownDshPluginOperations)
         await runShutdownStep('DSH management host', shutdownDshManagement)
         await runShutdownStep('Local STT runtime', shutdownLocalSttRuntime)
-        await runShutdownStep('Social message runtimes', shutdownSocialMessageRuntimes)
 
         // Stop accepting/routing chat work before stopping the bridge. This
         // lets ChatRunSocket release claimed background completions while the
