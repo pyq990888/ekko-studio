@@ -51,7 +51,7 @@ vi.mock('@/utils/session-sync', () => ({ subscribeSessionSync: vi.fn(() => vi.fn
 
 function summary() {
   return {
-    id: 'session-1', profile: 'default', source: 'coding_agent', agent: 'codex', title: 'Turn changes',
+    id: 'session-1', profile: 'default', source: 'cli', agent: 'hermes', title: 'Turn changes',
     preview: '', started_at: 1, ended_at: 2, last_active: 2, message_count: 4, tool_call_count: 0,
     input_tokens: 0, output_tokens: 0, model: 'gpt-test', provider: 'test',
   }
@@ -74,10 +74,10 @@ function change(id: string, assistantMessageId?: string) {
 
 describe('chat workspace diff turn association', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     localStorage.clear()
     setActivePinia(createPinia())
-    sessionApi.fetchSessions.mockResolvedValueOnce([summary()]).mockResolvedValueOnce([])
+    sessionApi.fetchSessions.mockResolvedValue([summary()])
     sessionApi.fetchSessionMessagesPage.mockReset()
     chatApi.resumePayload = {
       isWorking: false,

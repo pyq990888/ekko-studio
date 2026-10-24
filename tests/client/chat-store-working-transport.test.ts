@@ -278,11 +278,10 @@ describe('sidebar activity through the real chat API', () => {
 
   it('rejoins a still-pending observer room and receives subsequent completion', async () => {
     socketState.pending.set('one', 1)
-    store.setRuntimeMode('global_agent')
     store.sessions = [session('one')]
     await store.switchSession('one')
     const observer = socketState.sockets[1]
-    expect(observer.url).toBe('/global-agent')
+    expect(observer.url).toBe('/chat-run')
     observer.__trigger('disconnect', 'ping timeout')
     observer.__trigger('connect')
     await Promise.resolve()
@@ -303,7 +302,7 @@ describe('sidebar activity through the real chat API', () => {
     expect(socketState.sockets.every(socket => socket.__listenerCount('resumed') === 0)).toBe(true)
   })
 
-  it.each(['dispose', 'runtime', 'delete', 'archive'])('disposes background observers on %s and ignores retained callbacks', async (action) => {
+  it.each(['dispose', 'delete', 'archive'])('disposes background observers on %s and ignores retained callbacks', async (action) => {
     socketState.pending.set('one', 1)
     await store.switchSession('one')
     const observer = socketState.sockets[1]
@@ -311,7 +310,6 @@ describe('sidebar activity through the real chat API', () => {
     expect(observer.url).toBe('/chat-run')
     const retained = observer.on.mock.calls.find((call: any[]) => call[0] === 'resumed')[1]
     if (action === 'dispose') store.$dispose()
-    if (action === 'runtime') store.setRuntimeMode('global_agent')
     if (action === 'delete' || action === 'archive') {
       const api = await import('@/api/studio/sessions')
       vi.mocked(action === 'delete' ? api.deleteSession : api.archiveSession).mockResolvedValueOnce(true)

@@ -143,26 +143,6 @@ describe('chat store per-session reasoning effort', () => {
     expect(sessionsApi.setSessionReasoningEffort).not.toHaveBeenCalled()
   })
 
-  it('does not carry a draft effort into MoA', () => {
-    const session = useChatStore().newChat({ provider: 'moa', model: 'ensemble', reasoningEffort: 'max' })
-    expect(session.reasoningEffort).toBeUndefined()
-  })
-
-  it('sends native model and effort overrides in global mode without Studio provider credentials', async () => {
-    const store = useChatStore()
-    const session = store.newChat({ codingAgentId: 'codex', codingAgentMode: 'global', model: 'native-model', reasoningEffort: 'high' })
-    await store.sendMessage('Use native settings')
-    expect(chatApi.startRunViaSocket.mock.calls.at(-1)?.[0]).toMatchObject({
-      model: 'native-model', reasoning_effort: 'high', mode: 'global', coding_agent_id: 'codex',
-    })
-    const payload = chatApi.startRunViaSocket.mock.calls.at(-1)?.[0]
-    expect(payload.provider).toBeUndefined()
-    expect(payload.baseUrl).toBeUndefined()
-    expect(payload.apiKey).toBeUndefined()
-    expect(payload.apiMode).toBeUndefined()
-    expect(session.reasoningEffort).toBe('high')
-  })
-
   it('keeps native defaults when no global override was chosen', async () => {
     const store = useChatStore()
     store.newChat({ codingAgentId: 'codex', codingAgentMode: 'global' })

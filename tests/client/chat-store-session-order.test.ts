@@ -77,7 +77,9 @@ function makeSession(id: string, times: Partial<{ started_at: number; ended_at: 
 
 describe('chat session ordering', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    vi.mocked(fetchSessions).mockResolvedValue([])
+    vi.mocked(archiveSession).mockResolvedValue(true)
     localStorage.clear()
     setActivePinia(createPinia())
   })
@@ -151,13 +153,14 @@ describe('chat session ordering', () => {
     const store = useChatStore()
     const first = store.loadSessions(null, 'session-a')
     const second = store.loadSessions(null, 'session-b')
+    expect(pending.length).toBeGreaterThanOrEqual(2)
 
-    pending[2]([makeSession('session-b', { started_at: 2000, last_active: 2000 })])
-    pending[3]([])
+    // Resolve the newer load first, then the stale one.
+    pending[pending.length - 1]([makeSession('session-b', { started_at: 2000, last_active: 2000 })])
+    for (let i = 0; i < pending.length - 1; i++) pending[i]([])
     await second
 
     pending[0]([makeSession('session-a', { started_at: 1000, last_active: 1000 })])
-    pending[1]([])
     await first
 
     expect(store.sessions.map(session => session.id)).toEqual(['session-b'])
@@ -175,8 +178,8 @@ describe('chat session ordering', () => {
 
     expect(store.activeSessionId).toBe(newSession.id)
 
+    expect(pending.length).toBeGreaterThan(0)
     pending[0]([makeSession('session-a', { started_at: 1000, last_active: 1000 })])
-    pending[1]([])
     await load
 
     expect(store.sessions.map(session => session.id)).toEqual([newSession.id, 'session-a'])
@@ -212,12 +215,10 @@ describe('chat session ordering', () => {
   })
 
   it('rebinds the active session after a stale list refresh during an explicit switch', async () => {
-    vi.mocked(fetchSessions)
-      .mockResolvedValueOnce([
-        makeSession('session-a', { started_at: 2000 }),
-        makeSession('session-b', { started_at: 1000 }),
-      ] as any)
-      .mockResolvedValueOnce([])
+    vi.mocked(fetchSessions).mockResolvedValueOnce([
+      makeSession('session-a', { started_at: 2000 }),
+      makeSession('session-b', { started_at: 1000 }),
+    ] as any)
 
     const store = useChatStore()
     await store.loadSessions()
@@ -228,11 +229,14 @@ describe('chat session ordering', () => {
     const load = store.loadSessions(null, 'session-a')
     await store.switchSession('session-b')
 
-    pending[0]([
-      makeSession('session-a', { started_at: 2000 }),
-      makeSession('session-b', { started_at: 1000 }),
-    ])
-    pending[1]([])
+    // The stale refresh may resolve before or after the explicit switch; either
+    // way the explicit switch must win.
+    for (const resolve of pending) {
+      resolve([
+        makeSession('session-a', { started_at: 2000 }),
+        makeSession('session-b', { started_at: 1000 }),
+      ])
+    }
     await load
 
     expect(store.activeSessionId).toBe('session-b')

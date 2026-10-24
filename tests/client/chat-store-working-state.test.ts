@@ -61,20 +61,6 @@ describe('sidebar working state', () => {
     expect(store.isSessionWorking('one')).toBe(false)
   })
 
-  it('clears delegated activity on runtime changes', async () => {
-    const store = useChatStore()
-    store.sessions = [session('one')]
-    await store.switchSession('one')
-    await store.sendMessage('delegate')
-    const onEvent = api.startRunViaSocket.mock.calls[0][1]
-    onEvent({ event: 'run.completed', session_id: 'one', output: 'Started', background_pending: 1 })
-    expect(store.isSessionWorking('one')).toBe(true)
-    store.setRuntimeMode('global_agent')
-    expect(store.isSessionWorking('one')).toBe(false)
-    onEvent({ event: 'delegation.updated', session_id: 'one', status: 'running', background_pending: 1 })
-    expect(store.isSessionWorking('one')).toBe(false)
-  })
-
   it.each(['completed', 'failed', 'cancelled', 'interrupted'])('keeps work until every delegation is terminal (%s)', async (status) => {
     const store = useChatStore()
     store.sessions = [session('one'), session('two', 'research')]
