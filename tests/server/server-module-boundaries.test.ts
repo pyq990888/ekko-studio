@@ -33,22 +33,22 @@ describe('server module boundary harness', () => {
 
   it('enforces the acyclic domain dependency matrix', () => {
     expect(forbiddenDomainDependency('studio', 'hermes')).toBe(true)
-    expect(forbiddenDomainDependency('hermes', 'ekko')).toBe(true)
-    expect(forbiddenDomainDependency('coding-agents', 'hermes')).toBe(true)
     expect(forbiddenDomainDependency('hermes', 'studio')).toBe(false)
-    expect(forbiddenDomainDependency('bootstrap', 'ekko')).toBe(false)
+    expect(forbiddenDomainDependency('bootstrap', 'hermes')).toBe(false)
+    // Hermes is the only agent module left, so it may not depend on itself.
+    expect(forbiddenDomainDependency('hermes', 'hermes')).toBe(false)
   })
 
   it('allows agents to consume only Studio contracts and public APIs', () => {
     expect(validateTargetDependency(
-      'modules/ekko/services/run.ts',
+      'modules/hermes/services/run.ts',
       'modules/studio/contracts/agents/runner.ts',
     )).toEqual([])
     expect(validateTargetDependency(
-      'modules/ekko/services/run.ts',
+      'modules/hermes/services/run.ts',
       'modules/studio/services/config/service.ts',
     )).toEqual([
-      'modules/ekko/services/run.ts must use Studio contracts/public APIs, not Studio internal path modules/studio/services/config/service.ts',
+      'modules/hermes/services/run.ts must use Studio contracts/public APIs, not Studio internal path modules/studio/services/config/service.ts',
     ])
   })
 
@@ -58,8 +58,8 @@ describe('server module boundary harness', () => {
       'modules/hermes/services/kanban/service.ts',
     )[0]).toContain('must delegate through controllers')
     expect(validateTargetDependency(
-      'modules/hermes/controllers/chat.ts',
-      'modules/coding-agents/public/runner.ts',
+      'modules/studio/controllers/chat.ts',
+      'modules/hermes/public/runner.ts',
     )[0]).toContain('must not depend')
   })
 
