@@ -5,11 +5,6 @@
 import type { Server, Socket } from 'socket.io'
 import { updateSession, updateSessionStats } from '../../repositories/session-store'
 import { logger } from '../../public/logging'
-import { chatCodingAgentRunManager as codingAgentRunManager } from '../../public/chat-agent-runtime'
-import {
-  abortChatEkkoBackgroundTasks as abortGlobalEkkoBackgroundTasks,
-  hasChatEkkoBackgroundTasks as hasGlobalEkkoBackgroundTasks,
-} from '../../public/chat-agent-runtime'
 import { flushBridgePendingToDb } from './bridge-message'
 import { flushResponseRunToDb } from './response-stream'
 import { replaceState } from './compression'
@@ -57,24 +52,17 @@ export async function handleAbort(
   bridge: any,
   runQueuedItem: (socket: Socket, sessionId: string, next: QueuedRun, fallbackProfile?: string) => void,
 ) {
-  let state = sessionMap.get(sessionId)
-  const hasCodingAgentRun = codingAgentRunManager.hasSession(sessionId)
-  const hasEkkoBackgroundTasks = hasGlobalEkkoBackgroundTasks(sessionId)
-  if (!state && (hasCodingAgentRun || hasEkkoBackgroundTasks)) {
-    state = { messages: [], isWorking: true, events: [], queue: [], source: hasCodingAgentRun ? 'coding_agent' : 'builtin_agent' }
-    sessionMap.set(sessionId, state)
-  }
-  const isCodingAgentRun = state?.source === 'coding_agent' || state?.source === 'builtin_agent' || state?.webhookAgent === 'ekko' || hasCodingAgentRun || hasEkkoBackgroundTasks
-  if (state) {
-    state.backgroundWakeStopped = true
-    const dropped = state.queue.filter(item => item.goalContinuation || item.autonomous || item.backgroundDelegationId)
-    state.queue = state.queue.filter(item => !dropped.includes(item))
+  const activeState = sessionMap.get(sessionId)
+  if (activeState) {
+    activeState.backgroundWakeStopped = true
+    const dropped = activeState.queue.filter(item => item.goalContinuation || item.autonomous || item.backgroundDelegationId)
+    activeState.queue = activeState.queue.filter(item => !dropped.includes(item))
     for (const item of dropped) {
       if (item.backgroundDelegationId && item.backgroundClaimId) {
         // Releasing a claim requeues it, undoing the user's Stop.
         try {
           void Promise.resolve(bridge.completeBackgroundNotification?.(
-            sessionId, item.profile || state.profile, item.backgroundDelegationId, item.backgroundClaimId,
+            sessionId, item.profile || activeState.profile, item.backgroundDelegationId, item.backgroundClaimId,
           )).catch((err: unknown) => logger.warn(err, '[chat-run-socket] failed to acknowledge stopped background wake'))
         } catch (err) {
           logger.warn(err, '[chat-run-socket] failed to acknowledge stopped background wake')
@@ -82,30 +70,27 @@ export async function handleAbort(
       }
     }
   }
-  if (
-    (!state?.isWorking && !hasCodingAgentRun && !hasEkkoBackgroundTasks) ||
-    (state && !isCodingAgentRun && !state.runId && !state.abortController)
-  ) {
+  if (!activeState?.isWorking || (!activeState.runId && !activeState.abortController)) {
     logger.info({ sessionId }, '[chat-run-socket][abort] ignored: no active run')
-    if (state) {
-      if (state.queueInsertion) {
+    if (activeState) {
+      if (activeState.queueInsertion) {
         emitToSession(nsp, socket, sessionId, 'run.queue_insertion.updated', {
           event: 'run.queue_insertion.updated',
-          generation: state.queueInsertion.generation,
-          run_id: state.queueInsertion.runId,
-          queue_id: state.queueInsertion.queueId,
-          runtime: state.queueInsertion.runtime,
+          generation: activeState.queueInsertion.generation,
+          run_id: activeState.queueInsertion.runId,
+          queue_id: activeState.queueInsertion.queueId,
+          runtime: activeState.queueInsertion.runtime,
           phase: 'cancelled',
-          guarantee: state.queueInsertion.guarantee,
+          guarantee: activeState.queueInsertion.guarantee,
           reason: 'hard_stop',
         })
-        state.queueInsertion = undefined
+        activeState.queueInsertion = undefined
       }
-      state.isWorking = false
-      state.isAborting = false
-      state.abortController = undefined
-      state.runId = undefined
-      state.events = []
+      activeState.isWorking = false
+      activeState.isAborting = false
+      activeState.abortController = undefined
+      activeState.runId = undefined
+      activeState.events = []
     }
     emitToSession(nsp, socket, sessionId, 'abort.completed', {
       event: 'abort.completed',
@@ -115,8 +100,6 @@ export async function handleAbort(
     return
   }
 
-  const activeState = state
-  if (!activeState) return
   if (activeState.isAborting) return
   abortCompletions.delete(activeState)
 
@@ -151,12 +134,7 @@ export async function handleAbort(
   })
   logger.info({ sessionId, runId }, '[chat-run-socket][abort] started')
 
-  // Workflow sessions can be backed either by Hermes bridge runs or by scoped
-  // coding-agent runners. Prefer the coding-agent runtime when it owns the
-  // session; otherwise source='workflow' is misclassified as a bridge run and
-  // bridge.interrupt returns "unknown session" while the coding agent keeps
-  // running.
-  const shouldAbortThroughBridge = isBridgeRunSource(activeState.source) && !isCodingAgentRun
+  const shouldAbortThroughBridge = isBridgeRunSource(activeState.source)
 
   // Flush in-memory assistant text to DB before aborting the stream.
   if (shouldAbortThroughBridge) {
@@ -239,15 +217,6 @@ export async function handleAbort(
       // The terminal poll must not dequeue a new run while goalPause/destroy
       // still targets this session. Release it only after those calls settle.
       finishRequest()
-    }
-  } else if (isCodingAgentRun) {
-    activeState.abortController?.abort()
-    codingAgentRunManager.stop(sessionId, { reportClosed: false })
-    if (hasEkkoBackgroundTasks) {
-      await abortGlobalEkkoBackgroundTasks(sessionId)
-      for (const task of settleInterruptedBackgroundTasks(activeState)) {
-        emitToSession(nsp, socket, sessionId, 'subagent.complete', task)
-      }
     }
   } else if (activeState.abortController) {
     activeState.abortController.abort()

@@ -30,7 +30,7 @@ export function estimateSessionContextTokens(sessionId: string, fixedTokens = 0)
 
 /** Read before deleting: an earlier edit's checkpoint can retain known overhead. */
 export function getSessionContextOverhead(sessionId: string, state?: SessionState): number {
-  const fixedTokens = state?.ekkoContext?.fixedContextTokens ?? state?.bridgeContext?.fixedContextTokens
+  const fixedTokens = state?.bridgeContext?.fixedContextTokens
   if (typeof fixedTokens === 'number' && Number.isFinite(fixedTokens) && fixedTokens >= 0) return Math.floor(fixedTokens)
   return getSessionContextUsageEstimate(sessionId)?.fixedTokens ?? 0
 }

@@ -1,4 +1,3 @@
-import { isNativeCodingAgent } from '../../contracts/agents/native-coding-agents'
 import type { Server, Socket } from 'socket.io'
 import { addMessage, clearSessionMessages, createBranchedSession, createSession, getSession, getSessionDetail, renameSession, updateSessionStats } from '../../repositories/session-store'
 import { logger } from '../../public/logging'
@@ -1269,7 +1268,10 @@ function createBranchSession(parentSessionId: string, requestedTitle: string, ct
 
 
 function isCodingAgentBranchSource(session: { source?: string | null; agent?: string | null } | null | undefined): boolean {
-  return session?.source === 'coding_agent' || session?.agent === 'claude' || session?.agent === 'codex' || session?.agent === 'pi' || session?.agent === 'grok' || (session?.agent === 'cursor' || (session?.agent === 'antigravity' || isNativeCodingAgent(session?.agent))) || (session?.agent === 'opencode' || session?.agent === 'dsh') || session?.agent === 'ekko-agent'
+  if (!session) return false
+  if (session.source === 'coding_agent' || session.source === 'builtin_agent') return true
+  const agent = String(session.agent || '').trim()
+  return Boolean(agent && agent !== 'hermes')
 }
 
 function generateBranchSessionId(): string {

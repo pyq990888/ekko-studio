@@ -1,4 +1,3 @@
-import { isNativeCodingAgent } from '../../contracts/agents/native-coding-agents'
 import {
   getSession,
   getSessionDetailPaginated,
@@ -10,7 +9,6 @@ import { estimateUsageTokensFromMessages } from './usage'
 import { estimateSessionContextTokens } from './context-usage'
 import { getSessionContextUsageEstimate } from '../../repositories/session-context-usage'
 import type { ChatRunSource, SessionState } from './types'
-import { historySessionSource, isBuiltinEkkoAgent } from '../../contracts/history-source'
 
 function restoreBackgroundDelegations(messages: any[]): SessionState['backgroundDelegations'] {
   const delegations: NonNullable<SessionState['backgroundDelegations']> = {}
@@ -46,8 +44,7 @@ function restoreBackgroundDelegations(messages: any[]): SessionState['background
 export function resolveRunSource(source?: string, sessionId?: string): ChatRunSource {
   if (source === 'builtin_agent' || source === 'coding_agent' || source === 'global_agent' || source === 'workflow' || source === 'group_chat' || source === 'cli') return source
   if (sessionId) {
-    const storedSession = getSession(sessionId)
-    const stored = historySessionSource(storedSession || {})
+    const stored = getSession(sessionId)?.source
     if (stored === 'builtin_agent' || stored === 'coding_agent' || stored === 'global_agent' || stored === 'workflow' || stored === 'group_chat' || stored === 'cli') return stored
   }
   return 'cli'
@@ -78,9 +75,10 @@ export function readSessionStateFromDb(sid: string): SessionState {
     let outputTokens: number
     let contextTokens: number | undefined
     const session = actualDetail?.session || getSession(sid)
-    const usageSource = isBuiltinEkkoAgent(session?.agent)
+    const storedAgent = String(session?.agent || '').trim()
+    const usageSource = storedAgent === 'ekko-agent'
       ? 'ekko_agent'
-      : session?.source === 'coding_agent' || ['codex', 'pi', 'grok', 'opencode', 'dsh', 'claude', 'claude-code', 'claude_code', 'cursor', 'antigravity', 'qwen', 'kimi', 'codebuddy', 'qoder', 'copilot', 'zcode'].includes(session?.agent || '')
+      : session?.source === 'coding_agent' || (storedAgent && storedAgent !== 'hermes')
         ? 'coding_agent'
         : 'hermes'
     const totals = getRecordedUsageTotals(sid, usageSource)
@@ -89,9 +87,9 @@ export function readSessionStateFromDb(sid: string): SessionState {
     const pageUsage = hasPersistedUsage ? totals : estimateUsageTokensFromMessages(messages)
     inputTokens = hasPersistedUsage ? totals.inputTokens : pageUsage.inputTokens
     outputTokens = hasPersistedUsage ? totals.outputTokens : pageUsage.outputTokens
-    // Cursor reports aggregate turn usage, not a current context snapshot.
-    if (latestUsage && (!session?.history_cleared_at || latestUsage.created_at > session.history_cleared_at)
-      && (session?.agent !== 'cursor' && (session?.agent !== 'antigravity' && !isNativeCodingAgent(session?.agent)))) {
+    // Legacy coding-agent sessions keep their persisted usage but have no live context snapshot.
+    if (latestUsage && usageSource !== 'coding_agent'
+      && (!session?.history_cleared_at || latestUsage.created_at > session.history_cleared_at)) {
       contextTokens = Number(latestUsage.input_tokens || 0) + Number(latestUsage.output_tokens || 0)
     }
     if (contextTokens == null && usageSource !== 'coding_agent') {

@@ -31,8 +31,5 @@ export function foregroundNotificationPreview(
 /** Stable identity only, never accept an image URL from a notification payload. */
 export function foregroundNotificationAgent(value: unknown): string {
   if (typeof value !== 'string') return ''
-  const agent = value.toLowerCase().trim()
-  if (agent === 'claude' || agent === 'claude-code') return 'claude-code'
-  if (agent === 'ekko' || agent === 'ekko-agent') return 'ekko-agent'
-  return ['hermes', 'codex', 'pi', 'grok', 'opencode', 'dsh', 'cursor', 'antigravity', 'qwen', 'kimi', 'codebuddy', 'qoder', 'copilot', 'zcode'].includes(agent) ? agent : ''
+  return value.toLowerCase().trim() === 'hermes' ? 'hermes' : ''
 }
