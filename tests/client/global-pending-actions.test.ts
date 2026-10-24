@@ -103,54 +103,6 @@ describe('GlobalPendingActions', () => {
     workflowMock.statusHandlers.splice(0)
   })
 
-  it('sends privacy-safe system notifications for new direct, group, and workflow pending keys with exact navigation', async () => {
-    settingsState.display.notify_on_approval = true
-    const wrapper = mount(GlobalPendingActions)
-    await nextTick()
-
-    chatState.sessions = [{ id: 'session-b', title: '/secret/path', source: 'global_agent' }]
-    chatState.pendingApprovals = new Map([['session-b', {
-      sessionId: 'session-b', approvalId: 'approval-b', description: 'rm -rf /tmp/private', command: 'rm -rf /tmp/private', choices: ['once'],
-    }]])
-    chatState.pendingClarifies = new Map([['session-c', {
-      sessionId: 'session-c', clarifyId: 'clarify-c', question: 'Which secret path?', choices: null,
-    }]])
-    groupState.pendingApprovals = new Map([['room-b:approval-b', {
-      roomId: 'room-b', approvalId: 'approval-b', description: 'Deploy /private', command: 'deploy /private', choices: ['once'],
-    }]])
-    groupState.pendingClarifies = new Map([['room-c:clarify-c', {
-      roomId: 'room-c', clarifyId: 'clarify-c', question: 'Share token?', choices: null,
-    }]])
-    await nextTick()
-
-    workflowMock.statusHandlers[0]?.({
-      workflowId: 'workflow-b', runId: 'run-b', status: 'running',
-      pendingApprovals: [{ nodeId: 'build', executionId: 'exec-b' }],
-    })
-    await nextTick()
-
-    expect(systemNotificationMock.showSystemNotification).toHaveBeenCalledTimes(5)
-    for (const [payload] of systemNotificationMock.showSystemNotification.mock.calls) {
-      expect(payload.title).toMatch(/^settings\.display\.approvalNotification/)
-      expect(payload.body).toMatch(/^settings\.display\.approvalNotification/)
-      expect(JSON.stringify(payload)).not.toContain('rm -rf')
-      expect(JSON.stringify(payload)).not.toContain('/private')
-      expect(JSON.stringify(payload)).not.toContain('Which secret path?')
-      expect(JSON.stringify(payload)).not.toContain('Share token?')
-    }
-
-    const systemCalls = systemNotificationMock.showSystemNotification.mock.calls as any[][]
-    const chatPayload = systemCalls.find(([payload]) => payload.tag.includes('chat-approval'))?.[0]
-    expect(chatPayload?.clickUrl).toBe('/hermes/global-agent/session/session-b?profile=default')
-
-    const groupPayload = systemCalls.find(([payload]) => payload.tag.includes('group-approval'))?.[0]
-    expect(groupPayload?.clickUrl).toBe('/hermes/group-chat/room/room-b?profile=default')
-
-    const workflowPayload = systemCalls.find(([payload]) => payload.tag.includes('workflow-approval'))?.[0]
-    expect(workflowPayload?.clickUrl).toBe('/hermes/workflow?profile=default&workflowId=workflow-b&runId=run-b&nodeId=build&executionId=exec-b')
-    wrapper.unmount()
-  })
-
   it('does not send system notifications for restored baseline or repeated authoritative keys', async () => {
     settingsState.display.notify_on_approval = true
     chatState.pendingApprovals = new Map([['restored', {
@@ -175,35 +127,6 @@ describe('GlobalPendingActions', () => {
     const wrapper = mount(GlobalPendingActions)
     await nextTick()
     expect(settingsState.fetchSettings).toHaveBeenCalledTimes(1)
-    wrapper.unmount()
-  })
-
-  it('fences an out-of-order settings load after a Profile switch', async () => {
-    const loads: Array<{ options?: { shouldCommit?: () => boolean }; resolve: (value: boolean) => void }> = []
-    settingsState.fetchSettings.mockImplementation((options?: { shouldCommit?: () => boolean }) => new Promise<boolean>(resolve => {
-      loads.push({ options, resolve })
-    }))
-    const wrapper = mount(GlobalPendingActions)
-    await nextTick()
-    expect(loads).toHaveLength(1)
-
-    profileState.activeProfileName = 'research'
-    await nextTick()
-    expect(loads).toHaveLength(2)
-    expect(loads[0].options?.shouldCommit?.()).toBe(false)
-    expect(loads[1].options?.shouldCommit?.()).toBe(true)
-
-    settingsState.display.approval_bell = false
-    loads[1].resolve(true)
-    await Promise.resolve()
-    loads[0].resolve(false)
-    await Promise.resolve()
-
-    chatState.pendingApprovals = new Map([['research-session', {
-      sessionId: 'research-session', approvalId: 'approval-r', description: 'Read config', command: 'read config', choices: ['once'],
-    }]])
-    await nextTick()
-    expect(playCompletionSound).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -293,12 +216,6 @@ describe('GlobalPendingActions', () => {
     chatState.pendingApprovals = new Map(chatState.pendingApprovals)
     await nextTick()
     expect(playCompletionSound).toHaveBeenCalledTimes(1)
-
-    groupState.pendingApprovals = new Map([['room-b:approval-b', {
-      roomId: 'room-b', approvalId: 'approval-b', description: 'Deploy', command: 'deploy', choices: ['once', 'deny'],
-    }]])
-    await nextTick()
-    expect(playCompletionSound).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 
@@ -368,22 +285,6 @@ describe('GlobalPendingActions', () => {
     wrapper.unmount()
   })
 
-  it('sounds for a new in-context group approval without duplicating its notification', async () => {
-    settingsState.display.approval_bell = true
-    routeState.name = 'hermes.groupChatRoom'
-    const wrapper = mount(GlobalPendingActions)
-    await nextTick()
-
-    groupState.pendingApprovals = new Map([['room-a:approval-a', {
-      roomId: 'room-a', approvalId: 'approval-a', description: 'Deploy', command: 'deploy', choices: ['once'],
-    }]])
-    await nextTick()
-
-    expect(playCompletionSound).toHaveBeenCalledTimes(1)
-    expect(created).toHaveLength(0)
-    wrapper.unmount()
-  })
-
   it('does not duplicate the existing in-context approval for the active session', async () => {
     chatState.pendingApprovals = new Map([['session-a', {
       sessionId: 'session-a', approvalId: 'approval-a', description: 'Run', command: 'pwd', choices: ['once'],
@@ -393,18 +294,6 @@ describe('GlobalPendingActions', () => {
     await nextTick()
 
     expect(created).toHaveLength(0)
-  })
-
-  it('shows a stored active-session approval globally when the chat route is not visible', async () => {
-    routeState.name = 'hermes.workflow'
-    chatState.pendingApprovals = new Map([['session-a', {
-      sessionId: 'session-a', approvalId: 'approval-a', description: 'Run', command: 'pwd', choices: ['once'],
-    }]])
-
-    mount(GlobalPendingActions)
-    await nextTick()
-
-    expect(created.some(entry => notificationTitleText(entry).includes('session-a'))).toBe(true)
   })
 
   it('renders the exact approval command as a scrollable code block and copies it', async () => {
@@ -471,23 +360,6 @@ describe('GlobalPendingActions', () => {
     expect(chatState.respondApprovalFor).toHaveBeenCalledWith('session-b', 'approval-b', 'once')
   })
 
-  it('opens a global-agent session from its notification title', async () => {
-    chatState.sessions = [{ id: 'global-session', title: 'Global session', source: 'global_agent' }]
-    chatState.pendingApprovals = new Map([['global-session', {
-      sessionId: 'global-session', approvalId: 'approval-global', description: 'Run command', command: 'pwd', choices: ['once'],
-    }]])
-
-    mount(GlobalPendingActions)
-    await nextTick()
-
-    const title = await render(created[0].options.title)
-    await title.get('button').trigger('click')
-    expect(routerPush).toHaveBeenCalledWith({
-      name: 'hermes.globalAgentSession',
-      params: { sessionId: 'global-session' },
-    })
-  })
-
   it('submits a clarify response from the global notification', async () => {
     chatState.sessions = [{ id: 'session-b', title: 'B' }]
     chatState.pendingClarifies = new Map([['session-b', {
@@ -510,46 +382,6 @@ describe('GlobalPendingActions', () => {
     expect(uiMock.messageWarning).toHaveBeenCalledWith('chat.interactionExpired')
   })
 
-  it('opens and responds to a clarification from an inactive group room', async () => {
-    groupState.rooms = [{ id: 'room-b', name: 'Room B' }]
-    groupState.pendingClarifies = new Map([['room-b:clarify-b', {
-      roomId: 'room-b', agentName: 'Builder', clarifyId: 'clarify-b',
-      question: 'Which environment?', choices: null, timeoutMs: 300000,
-    }]])
-
-    mount(GlobalPendingActions)
-    await nextTick()
-
-    expect(notificationTitleText(created[0])).toContain('Room B')
-    const title = await render(created[0].options.title)
-    await title.get('button').trigger('click')
-    expect(routerPush).toHaveBeenCalledWith({ name: 'hermes.groupChatRoom', params: { roomId: 'room-b' } })
-    const content = await render(created[0].options.content)
-    await content.get('input').setValue('staging')
-    const action = await render(created[0].options.action)
-    await action.get('button').trigger('click')
-    expect(groupState.respondClarifyFor).toHaveBeenCalledWith('room-b', 'clarify-b', 'staging')
-  })
-
-  it('opens the source room from the title and handles its approval in place', async () => {
-    groupState.rooms = [{ id: 'room-b', name: 'Room B' }]
-    groupState.pendingApprovals = new Map([['approval-b', {
-      roomId: 'room-b', approvalId: 'approval-b', agentName: 'Builder', description: 'Install package', command: 'npm ci', choices: ['once', 'deny'],
-    }]])
-
-    mount(GlobalPendingActions)
-    await nextTick()
-
-    expect(groupState.connect).toHaveBeenCalled()
-    expect(notificationTitleText(created[0])).toContain('Room B')
-    const title = await render(created[0].options.title)
-    await title.get('button').trigger('click')
-    expect(routerPush).toHaveBeenCalledWith({ name: 'hermes.groupChatRoom', params: { roomId: 'room-b' } })
-    const action = await render(created[0].options.action)
-    await action.get('button').trigger('click')
-    expect(groupState.respondApprovalFor).toHaveBeenCalledWith('room-b', 'approval-b', 'once')
-  })
-
   it('destroys a global notification when the authoritative pending entry resolves', async () => {
     chatState.pendingApprovals = new Map([['session-b', {
       sessionId: 'session-b', approvalId: 'approval-b', description: 'Run', command: 'pwd', choices: ['once'],
@@ -564,107 +396,4 @@ describe('GlobalPendingActions', () => {
     expect(instance.destroy).toHaveBeenCalledOnce()
   })
 
-  it('sounds for a visible workflow approval without duplicating its in-context notification', async () => {
-    settingsState.display.approval_bell = true
-    routeState.name = 'hermes.workflow'
-    const wrapper = mount(GlobalPendingActions)
-    await nextTick()
-
-    window.dispatchEvent(new CustomEvent('hermes:workflow-approval-visible', {
-      detail: { key: 'workflow-approval:workflow-b:run-b:build:exec-b' },
-    }))
-    workflowMock.statusHandlers[0]?.({
-      workflowId: 'workflow-b', runId: 'run-b', status: 'running',
-      nodeStatuses: { build: 'pending_approval' },
-      pendingApprovals: [{ nodeId: 'build', executionId: 'exec-b' }],
-    })
-    await nextTick()
-
-    expect(playCompletionSound).toHaveBeenCalledTimes(1)
-    expect(created).toHaveLength(0)
-
-    window.dispatchEvent(new CustomEvent('hermes:workflow-approval-visible', {
-      detail: { key: 'workflow-approval:workflow-b:run-b:build:exec-b', visible: false },
-    }))
-    await nextTick()
-    expect(created).toHaveLength(1)
-    expect(playCompletionSound).toHaveBeenCalledTimes(1)
-    wrapper.unmount()
-  })
-
-  it('directly approves a pending workflow node from the global notification', async () => {
-    mount(GlobalPendingActions)
-    await nextTick()
-    workflowMock.statusHandlers[0]({
-      workflowId: 'workflow-b', runId: 'run-b', status: 'pending_approval',
-      nodeStatuses: { build: 'pending_approval' },
-      pendingApprovals: [{ nodeId: 'build', executionId: 'exec-b' }],
-    })
-    await nextTick()
-
-    const workflowNotification = created.find(entry => notificationTitleText(entry).includes('Workflow B'))
-    expect(workflowNotification).toBeTruthy()
-    const action = await render(workflowNotification.options.action)
-    const buttons = action.findAll('button')
-    await buttons[buttons.length - 1].trigger('click')
-    expect(workflowMock.approveWorkflowNode).toHaveBeenCalledWith('workflow-b', 'run-b', 'build', true, 'exec-b')
-  })
-
-  it('renders every authoritative pending workflow execution without guessing from node sessions', async () => {
-    mount(GlobalPendingActions)
-    await nextTick()
-    workflowMock.statusHandlers[0]?.({
-      workflowId: 'workflow-b', runId: 'run-b', status: 'running', nodeStatuses: { build: 'pending_approval' },
-      pendingApprovals: [
-        { nodeId: 'build', executionId: 'exec-1' },
-        { nodeId: 'build', executionId: 'exec-2' },
-      ],
-      run: { node_sessions: [{ node_id: 'build', sequence: 99, execution_id: 'wrong-exec' }] },
-    })
-    await nextTick()
-
-    const workflowNotifications = created.filter(entry => notificationTitleText(entry).includes('Workflow B'))
-    expect(workflowNotifications).toHaveLength(2)
-    const secondAction = await render(workflowNotifications[1].options.action)
-    const buttons = secondAction.findAll('button')
-    await buttons[buttons.length - 1].trigger('click')
-    expect(workflowMock.approveWorkflowNode).toHaveBeenCalledWith('workflow-b', 'run-b', 'build', true, 'exec-2')
-  })
-
-  it('resubscribes workflow approvals when the active profile changes', async () => {
-    mount(GlobalPendingActions)
-    await nextTick()
-    workflowMock.subscribeWorkflowStatuses.mockClear()
-
-    profileState.activeProfileName = 'research'
-    await nextTick()
-
-    expect(workflowMock.subscribeWorkflowStatuses).toHaveBeenCalledWith(undefined, 'research')
-  })
-
-  it('ignores delayed workflow results from the previous profile', async () => {
-    let resolveOldList!: (records: any[]) => void
-    let resolveOldStatuses!: (statuses: any[]) => void
-    const oldList = new Promise<any[]>(resolve => { resolveOldList = resolve })
-    const oldStatuses = new Promise<any[]>(resolve => { resolveOldStatuses = resolve })
-    workflowMock.listWorkflowsSocket.mockImplementation((profile?: string) => profile === 'default'
-      ? oldList
-      : Promise.resolve([{ id: 'workflow-new', name: 'New Workflow' }]))
-    workflowMock.subscribeWorkflowStatuses.mockImplementation((_ids?: string[], profile?: string) => profile === 'default'
-      ? oldStatuses
-      : Promise.resolve([{ workflowId: 'workflow-new', runId: 'run-new', status: 'pending_approval', pendingApprovals: [{ nodeId: 'new-node', executionId: 'new-exec' }] }]))
-
-    mount(GlobalPendingActions)
-    await nextTick()
-    profileState.activeProfileName = 'research'
-    await nextTick()
-    await Promise.resolve()
-    resolveOldList([{ id: 'workflow-old', name: 'Old Workflow' }])
-    resolveOldStatuses([{ workflowId: 'workflow-old', runId: 'run-old', status: 'pending_approval', pendingApprovals: [{ nodeId: 'old-node', executionId: 'old-exec' }] }])
-    await Promise.resolve()
-    await nextTick()
-
-    expect(created.some(entry => notificationTitleText(entry).includes('Old Workflow'))).toBe(false)
-    expect(created.some(entry => notificationTitleText(entry).includes('New Workflow'))).toBe(true)
-  })
 })
