@@ -49,7 +49,6 @@ import { kanbanRoutes } from '../modules/hermes/routes/kanban'
 import { workflowRoutes } from '../modules/studio/routes/workflows'
 import { ttsRoutes, ttsProtectedRoutes } from '../modules/studio/routes/tts'
 import { sttProtectedRoutes } from '../modules/studio/routes/stt'
-import { jevRoutes } from '../modules/studio/routes/jev'
 import { mcuFirmwareRoutes } from '../modules/studio/routes/mcu-firmware'
 import { groupChatPublicRoutes, groupChatRoutes } from '../modules/studio/routes/group-chat'
 import { chatRunRoutes } from '../modules/studio/routes/chat-run'
@@ -137,7 +136,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(workflowRoutes.routes())
   app.use(ttsProtectedRoutes.routes())
   app.use(sttProtectedRoutes.routes())
-  app.use(jevRoutes.routes())
   app.use(mcuFirmwareRoutes.routes())
   app.use(performanceMonitorRoutes.routes())
   app.use(journeyRoutes.routes())

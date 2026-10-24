@@ -82,7 +82,6 @@ const tagMappings = {
   'modules/studio/routes/chat-webhooks.ts': { name: 'Chat Webhooks', description: 'Cross-agent Chat Run webhook endpoint management' },
   'modules/studio/routes/tts.ts': { name: 'TTS', description: 'Text-to-speech generation and settings' },
   'modules/studio/routes/stt.ts': { name: 'STT', description: 'Speech-to-text transcription and settings' },
-  'modules/studio/routes/jev.ts': { name: 'JEV', description: 'Profile-scoped TypeSafe JEV configuration and shared Choice, Score, Noul evaluations' },
   'modules/studio/routes/performance-monitor.ts': { name: 'Performance', description: 'Runtime performance monitoring' },
   'modules/studio/routes/petdex.ts': { name: 'Petdex', description: 'Desktop pet catalog and assets' },
   'modules/studio/routes/pets.ts': { name: 'Pets', description: 'Per-profile desktop pet settings' },
