@@ -53,7 +53,6 @@ import { ttsRoutes, ttsProtectedRoutes } from '../modules/studio/routes/tts'
 import { sttProtectedRoutes } from '../modules/studio/routes/stt'
 import { jevRoutes } from '../modules/studio/routes/jev'
 import { mcuFirmwareRoutes } from '../modules/studio/routes/mcu-firmware'
-import { mediaRoutes } from '../modules/studio/routes/media'
 import { groupChatPublicRoutes, groupChatRoutes } from '../modules/studio/routes/group-chat'
 import { chatRunRoutes } from '../modules/studio/routes/chat-run'
 import { chatWebhookPublicRoutes, chatWebhookRoutes } from '../modules/studio/routes/chat-webhooks'
@@ -144,7 +143,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(sttProtectedRoutes.routes())
   app.use(jevRoutes.routes())
   app.use(mcuFirmwareRoutes.routes())
-  app.use(mediaRoutes.routes())
   app.use(performanceMonitorRoutes.routes())
   app.use(journeyRoutes.routes())
   app.use(mcpRoutes.routes())                   // MCP management

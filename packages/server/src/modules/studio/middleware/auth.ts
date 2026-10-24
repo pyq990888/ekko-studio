@@ -121,15 +121,8 @@ function requestToken(ctx: Context): string {
   return typeof ctx.query.token === 'string' ? ctx.query.token.trim() : ''
 }
 
-const SERVER_TOKEN_EXACT_PATHS = new Set([
-  '/api/studio/media/apikey-image-generate',
-  '/api/studio/media/grok-image-to-video',
-  '/api/studio/media/minimax-image-to-video',
-])
-
 function allowsServerTokenPath(path: string): boolean {
-  return SERVER_TOKEN_EXACT_PATHS.has(path) ||
-    path.startsWith('/api/studio/voice/proxy/')
+  return path.startsWith('/api/studio/voice/proxy/')
 }
 
 function isLoopbackRequest(ctx: Context): boolean {
