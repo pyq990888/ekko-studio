@@ -106,7 +106,6 @@ async function loadFromRoute() {
       await filesStore.fetchEntries(directoryPath, {
         profile,
         workspaceSessionId: null,
-        workspaceRoomId: null,
       })
     }
 

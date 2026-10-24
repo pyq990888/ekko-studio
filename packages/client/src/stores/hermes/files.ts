@@ -13,16 +13,6 @@ import {
 } from '@/api/studio/sessions'
 import type { FileEntry, FileListResult } from '@/api/studio/files'
 import {
-  copyGroupWorkspaceFile,
-  deleteGroupWorkspaceFile,
-  fetchGroupWorkspaceFileText,
-  listGroupWorkspaceFiles,
-  mkdirGroupWorkspaceFile,
-  readGroupWorkspaceFile,
-  renameGroupWorkspaceFile,
-  writeGroupWorkspaceFile,
-} from '@/api/studio/group-chat'
-import {
   getFilePreviewKind,
   getTextPreviewLanguage,
   type FilePreviewKind,
@@ -58,7 +48,6 @@ export const useFilesStore = defineStore('files', () => {
   const currentPath = ref('')
   const currentProfile = ref<string | null>(null)
   const currentWorkspaceSessionId = ref<string | null>(null)
-  const currentWorkspaceRoomId = ref<string | null>(null)
   const entries = ref<FileEntry[]>([])
   const loading = ref(false)
   const sortBy = ref<'name' | 'size' | 'modTime'>('name')
@@ -72,7 +61,6 @@ export const useFilesStore = defineStore('files', () => {
     originalContent: string
     language: string
     workspaceSessionId?: string
-    workspaceRoomId?: string
     workspaceRelativePath?: string
   } | null>(null)
 
@@ -82,7 +70,6 @@ export const useFilesStore = defineStore('files', () => {
     size: number
     profile?: string | null
     workspaceSessionId?: string | null
-    workspaceRoomId?: string | null
     sourceUrl?: string
     type: FilePreviewKind
     content?: string
@@ -121,22 +108,15 @@ export const useFilesStore = defineStore('files', () => {
   })
 
   function resolveProfile(profile?: string | null): string | null {
-    return currentWorkspaceSessionId.value || currentWorkspaceRoomId.value ? null : profile === undefined ? currentProfile.value : normalizeProfile(profile)
+    return currentWorkspaceSessionId.value ? null : profile === undefined ? currentProfile.value : normalizeProfile(profile)
   }
 
   function resolveWorkspaceSessionId(sessionId?: string | null): string | null {
     return sessionId === undefined ? currentWorkspaceSessionId.value : normalizeProfile(sessionId)
   }
 
-  function resolveWorkspaceRoomId(roomId?: string | null): string | null {
-    return roomId === undefined ? currentWorkspaceRoomId.value : normalizeProfile(roomId)
-  }
-
   async function listEntries(path = currentPath.value): Promise<FileListResult> {
-    const workspaceSessionId = currentWorkspaceSessionId.value
-    const workspaceRoomId = currentWorkspaceRoomId.value
-    if (workspaceRoomId) return listGroupWorkspaceFiles(workspaceRoomId, path)
-    if (workspaceSessionId) return listSessionWorkspaceFiles(workspaceSessionId, path)
+    if (currentWorkspaceSessionId.value) return listSessionWorkspaceFiles(currentWorkspaceSessionId.value, path)
     return filesApi.listFiles(path, currentProfile.value)
   }
 
@@ -145,7 +125,7 @@ export const useFilesStore = defineStore('files', () => {
     return filesApi.listFiles(path, profile)
   }
 
-  async function fetchEntries(path?: string, options: { profile?: string | null; workspaceSessionId?: string | null; workspaceRoomId?: string | null } = {}) {
+  async function fetchEntries(path?: string, options: { profile?: string | null; workspaceSessionId?: string | null } = {}) {
     const requestSeq = ++fetchRequestSeq
     if (path !== undefined && path !== currentPath.value) {
       // Switching directory invalidates the current preview; close it so the
@@ -154,21 +134,15 @@ export const useFilesStore = defineStore('files', () => {
       previewFile.value = null
     }
     const previousWorkspaceSessionId = currentWorkspaceSessionId.value
-    const previousWorkspaceRoomId = currentWorkspaceRoomId.value
     const previousProfile = currentProfile.value
     const previousPath = currentPath.value
-    let nextWorkspaceSessionId = resolveWorkspaceSessionId(options.workspaceSessionId)
-    let nextWorkspaceRoomId = resolveWorkspaceRoomId(options.workspaceRoomId)
-    if (options.workspaceSessionId !== undefined && nextWorkspaceSessionId) nextWorkspaceRoomId = null
-    if (options.workspaceRoomId !== undefined && nextWorkspaceRoomId) nextWorkspaceSessionId = null
+    const nextWorkspaceSessionId = resolveWorkspaceSessionId(options.workspaceSessionId)
     currentWorkspaceSessionId.value = nextWorkspaceSessionId
-    currentWorkspaceRoomId.value = nextWorkspaceRoomId
-    const nextProfile = nextWorkspaceSessionId || nextWorkspaceRoomId ? null : resolveProfile(options.profile)
+    const nextProfile = nextWorkspaceSessionId ? null : resolveProfile(options.profile)
     currentProfile.value = nextProfile
     if (path !== undefined) currentPath.value = path
     if (
       previousWorkspaceSessionId !== nextWorkspaceSessionId ||
-      previousWorkspaceRoomId !== nextWorkspaceRoomId ||
       previousProfile !== nextProfile ||
       previousPath !== currentPath.value
     ) {
@@ -182,15 +156,15 @@ export const useFilesStore = defineStore('files', () => {
     } catch (err) {
       if (requestSeq !== fetchRequestSeq) return
       console.error('Failed to fetch files:', err)
-      if (nextWorkspaceSessionId || nextWorkspaceRoomId) entries.value = []
+      if (nextWorkspaceSessionId) entries.value = []
       throw err
     } finally {
       if (requestSeq === fetchRequestSeq) loading.value = false
     }
   }
 
-  function navigateTo(path: string, options: { profile?: string | null; workspaceSessionId?: string | null; workspaceRoomId?: string | null } = {}) { return fetchEntries(path, options) }
-  function navigateUp(options: { profile?: string | null; workspaceSessionId?: string | null; workspaceRoomId?: string | null } = {}) {
+  function navigateTo(path: string, options: { profile?: string | null; workspaceSessionId?: string | null } = {}) { return fetchEntries(path, options) }
+  function navigateUp(options: { profile?: string | null; workspaceSessionId?: string | null } = {}) {
     const parts = currentPath.value.split('/').filter(Boolean)
     parts.pop()
     return fetchEntries(parts.join('/'), options)
@@ -198,10 +172,6 @@ export const useFilesStore = defineStore('files', () => {
 
   async function openEditor(filePath: string, options: { profile?: string | null } = {}) {
     previewFile.value = null
-    if (currentWorkspaceRoomId.value) {
-      await openGroupWorkspaceEditor(currentWorkspaceRoomId.value, filePath)
-      return
-    }
     if (currentWorkspaceSessionId.value) {
       await openSessionWorkspaceEditor(currentWorkspaceSessionId.value, filePath)
       return
@@ -230,28 +200,9 @@ export const useFilesStore = defineStore('files', () => {
     }
   }
 
-  async function openGroupWorkspaceEditor(roomId: string, filePath: string) {
-    previewFile.value = null
-    const result = await readGroupWorkspaceFile(roomId, filePath)
-    editingFile.value = {
-      path: result.path,
-      content: result.content,
-      originalContent: result.content,
-      language: getLanguageFromPath(result.path),
-      workspaceRoomId: roomId,
-      workspaceRelativePath: result.path,
-    }
-  }
-
   async function saveEditor() {
     if (!editingFile.value) return
-    if (editingFile.value.workspaceRoomId && editingFile.value.workspaceRelativePath) {
-      await writeGroupWorkspaceFile(
-        editingFile.value.workspaceRoomId,
-        editingFile.value.workspaceRelativePath,
-        editingFile.value.content,
-      )
-    } else if (editingFile.value.workspaceSessionId && editingFile.value.workspaceRelativePath) {
+    if (editingFile.value.workspaceSessionId && editingFile.value.workspaceRelativePath) {
       await writeSessionWorkspaceFile(
         editingFile.value.workspaceSessionId,
         editingFile.value.workspaceRelativePath,
@@ -277,22 +228,17 @@ export const useFilesStore = defineStore('files', () => {
       size: entry.size,
       profile,
       workspaceSessionId: currentWorkspaceSessionId.value,
-      ...(currentWorkspaceRoomId.value ? { workspaceRoomId: currentWorkspaceRoomId.value } : {}),
       type,
     }
     if (type === 'markdown') {
-      const result = currentWorkspaceRoomId.value
-        ? await readGroupWorkspaceFile(currentWorkspaceRoomId.value, entry.path)
-        : currentWorkspaceSessionId.value
-          ? await readSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path)
-          : await filesApi.readFile(entry.path, profile)
+      const result = currentWorkspaceSessionId.value
+        ? await readSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path)
+        : await filesApi.readFile(entry.path, profile)
       previewFile.value = { ...common, content: result.content }
     } else if (type === 'text') {
-      const result = currentWorkspaceRoomId.value
-        ? await readGroupWorkspaceFile(currentWorkspaceRoomId.value, entry.path)
-        : currentWorkspaceSessionId.value
-          ? await readSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path)
-          : await filesApi.readFile(entry.path, profile)
+      const result = currentWorkspaceSessionId.value
+        ? await readSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path)
+        : await filesApi.readFile(entry.path, profile)
       previewFile.value = {
         ...common,
         content: result.content,
@@ -340,44 +286,11 @@ export const useFilesStore = defineStore('files', () => {
     commitPreview(requestSeq, common)
   }
 
-  async function openGroupWorkspacePreview(
-    roomId: string,
-    filePath: string,
-    fileName = filePath.split('/').pop() || filePath,
-    size = -1,
-    location?: FilePreviewLocation,
-  ) {
-    const type = getFilePreviewKind(fileName || filePath)
-    if (!type) return
-    const requestSeq = beginPreviewRequest()
-    const common = {
-      path: filePath,
-      name: fileName,
-      size,
-      profile: null,
-      workspaceSessionId: null,
-      workspaceRoomId: roomId,
-      type,
-      ...(location ? {
-        startLine: location.startLine,
-        endLine: location.endLine ?? location.startLine,
-      } : {}),
-    }
-    if (type === 'markdown' || type === 'text') {
-      const result = await fetchGroupWorkspaceFileText(roomId, filePath)
-      commitPreview(requestSeq, type === 'markdown'
-        ? { ...common, size: result.size, content: result.content }
-        : { ...common, size: result.size, content: result.content, language: getLanguageFromPath(filePath) })
-      return
-    }
-    commitPreview(requestSeq, common)
-  }
-
   async function openRemotePreview(
     sourceUrl: string,
     fileName: string,
     size = -1,
-    context: { workspaceSessionId?: string | null; workspaceRoomId?: string | null } = {},
+    context: { workspaceSessionId?: string | null } = {},
   ): Promise<boolean> {
     const type = getFilePreviewKind(fileName)
     if (!type) return false
@@ -411,23 +324,20 @@ export const useFilesStore = defineStore('files', () => {
 
   async function createDir(name: string, targetPath = currentPath.value) {
     const path = targetPath ? `${targetPath}/${name}` : name
-    if (currentWorkspaceRoomId.value) await mkdirGroupWorkspaceFile(currentWorkspaceRoomId.value, path)
-    else if (currentWorkspaceSessionId.value) await mkdirSessionWorkspaceFile(currentWorkspaceSessionId.value, path)
+    if (currentWorkspaceSessionId.value) await mkdirSessionWorkspaceFile(currentWorkspaceSessionId.value, path)
     else await filesApi.mkDir(path, currentProfile.value)
     await fetchEntries(undefined)
   }
 
   async function createFile(name: string) {
     const path = currentPath.value ? `${currentPath.value}/${name}` : name
-    if (currentWorkspaceRoomId.value) await writeGroupWorkspaceFile(currentWorkspaceRoomId.value, path, '')
-    else if (currentWorkspaceSessionId.value) await writeSessionWorkspaceFile(currentWorkspaceSessionId.value, path, '')
+    if (currentWorkspaceSessionId.value) await writeSessionWorkspaceFile(currentWorkspaceSessionId.value, path, '')
     else await filesApi.writeFile(path, '', currentProfile.value)
     await fetchEntries(undefined)
   }
 
   async function deleteEntry(entry: FileEntry) {
-    if (currentWorkspaceRoomId.value) await deleteGroupWorkspaceFile(currentWorkspaceRoomId.value, entry.path, entry.isDir)
-    else if (currentWorkspaceSessionId.value) await deleteSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, entry.isDir)
+    if (currentWorkspaceSessionId.value) await deleteSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, entry.isDir)
     else await filesApi.deleteFile(entry.path, entry.isDir, currentProfile.value)
     if (previewFile.value && isAffected(previewFile.value.path, entry.path, entry.isDir)) {
       previewFile.value = null
@@ -441,8 +351,7 @@ export const useFilesStore = defineStore('files', () => {
   async function renameEntry(entry: FileEntry, newName: string) {
     const parentPath = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : ''
     const newPath = parentPath ? `${parentPath}/${newName}` : newName
-    if (currentWorkspaceRoomId.value) await renameGroupWorkspaceFile(currentWorkspaceRoomId.value, entry.path, newPath)
-    else if (currentWorkspaceSessionId.value) await renameSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, newPath)
+    if (currentWorkspaceSessionId.value) await renameSessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, newPath)
     else await filesApi.renameFile(entry.path, newPath, currentProfile.value)
     if (previewFile.value && isAffected(previewFile.value.path, entry.path, entry.isDir)) {
       previewFile.value = null
@@ -454,14 +363,13 @@ export const useFilesStore = defineStore('files', () => {
   }
 
   async function copyEntry(entry: FileEntry, destPath: string) {
-    if (currentWorkspaceRoomId.value) await copyGroupWorkspaceFile(currentWorkspaceRoomId.value, entry.path, destPath)
-    else if (currentWorkspaceSessionId.value) await copySessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, destPath)
+    if (currentWorkspaceSessionId.value) await copySessionWorkspaceFile(currentWorkspaceSessionId.value, entry.path, destPath)
     else await filesApi.copyFile(entry.path, destPath, currentProfile.value)
     await fetchEntries(undefined)
   }
 
   async function uploadFiles(files: File[]) {
-    if (!currentWorkspaceSessionId.value && !currentWorkspaceRoomId.value) {
+    if (!currentWorkspaceSessionId.value) {
       await filesApi.uploadFiles(currentPath.value, files, currentProfile.value)
       await fetchEntries(undefined)
       return
@@ -469,8 +377,7 @@ export const useFilesStore = defineStore('files', () => {
     for (const file of files) {
       const path = currentPath.value ? `${currentPath.value}/${file.name}` : file.name
       const content = await file.text()
-      if (currentWorkspaceRoomId.value) await writeGroupWorkspaceFile(currentWorkspaceRoomId.value, path, content)
-      else await writeSessionWorkspaceFile(currentWorkspaceSessionId.value!, path, content)
+      await writeSessionWorkspaceFile(currentWorkspaceSessionId.value, path, content)
     }
     await fetchEntries(undefined)
   }
@@ -490,12 +397,12 @@ export const useFilesStore = defineStore('files', () => {
   })
 
   return {
-    currentPath, currentProfile, currentWorkspaceSessionId, currentWorkspaceRoomId, entries, loading, sortBy, sortOrder,
+    currentPath, currentProfile, currentWorkspaceSessionId, entries, loading, sortBy, sortOrder,
     editingFile, previewFile,
     pathSegments, sortedEntries, hasUnsavedChanges,
     fetchEntries, listEntries, fetchDirectory, navigateTo, navigateUp, selectDirectory,
-    openEditor, openSessionWorkspaceEditor, openGroupWorkspaceEditor, saveEditor, closeEditor,
-    openPreview, openSessionWorkspacePreview, openGroupWorkspacePreview, openRemotePreview, closePreview,
+    openEditor, openSessionWorkspaceEditor, saveEditor, closeEditor,
+    openPreview, openSessionWorkspacePreview, openRemotePreview, closePreview,
     createDir, createFile, deleteEntry, renameEntry, copyEntry,
     uploadFiles, setSort,
   }

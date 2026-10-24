@@ -4,7 +4,6 @@ import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore, isTextFile, isPreviewableFile } from '@/stores/hermes/files'
 import { downloadSessionWorkspaceFile } from '@/api/studio/sessions'
-import { downloadGroupWorkspaceFile } from '@/api/studio/group-chat'
 import { downloadFile } from '@/api/studio/download'
 import type { FileEntry } from '@/api/studio/files'
 import { copyToClipboard } from '@/utils/clipboard'
@@ -89,8 +88,7 @@ async function handleSelect(key: string) {
     case 'download':
       if (entry.isDir) return
       try {
-        if (filesStore.currentWorkspaceRoomId) await downloadGroupWorkspaceFile(filesStore.currentWorkspaceRoomId, entry.path, entry.name)
-        else if (filesStore.currentWorkspaceSessionId) await downloadSessionWorkspaceFile(filesStore.currentWorkspaceSessionId, entry.path, entry.name)
+        if (filesStore.currentWorkspaceSessionId) await downloadSessionWorkspaceFile(filesStore.currentWorkspaceSessionId, entry.path, entry.name)
         else await downloadFile(entry.path, entry.name, filesStore.currentProfile)
       } catch (err: any) { message.error(err.message) }
       break

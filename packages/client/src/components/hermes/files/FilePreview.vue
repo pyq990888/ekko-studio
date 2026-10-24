@@ -10,7 +10,6 @@ import { fetchFilePreviewBlob } from '@/api/studio/files'
 import { fetchAuthenticatedBlob, saveBlob } from '@/api/studio/binary-content'
 import { downloadFile } from '@/api/studio/download'
 import { downloadSessionWorkspaceFile, fetchSessionWorkspaceFileBlob } from '@/api/studio/sessions'
-import { downloadGroupWorkspaceFile, fetchGroupWorkspaceFileBlob } from '@/api/studio/group-chat'
 import { handleCodeBlockCopyClick, renderHighlightedCodeBlock } from '@/components/hermes/chat/highlight'
 import { previewMimeMatches } from '@/utils/hermes/file-preview'
 import { openHtmlInDesktopBrowser } from '@/utils/desktop-browser'
@@ -73,11 +72,9 @@ async function loadPreview(): Promise<void> {
   try {
     const blob = file.sourceUrl
       ? await fetchAuthenticatedBlob(file.sourceUrl, { profile: null, signal: requestController.signal })
-      : file.workspaceRoomId
-        ? await fetchGroupWorkspaceFileBlob(file.workspaceRoomId, file.path, requestController.signal)
-        : file.workspaceSessionId
-          ? await fetchSessionWorkspaceFileBlob(file.workspaceSessionId, file.path, requestController.signal)
-          : await fetchFilePreviewBlob(file.path, file.profile, requestController.signal)
+      : file.workspaceSessionId
+        ? await fetchSessionWorkspaceFileBlob(file.workspaceSessionId, file.path, requestController.signal)
+        : await fetchFilePreviewBlob(file.path, file.profile, requestController.signal)
     if (generation !== requestGeneration) return
     if (!previewMimeMatches(file.type, blob.type)) {
       throw new Error(t('files.previewMimeMismatch'))
@@ -118,8 +115,6 @@ async function handleDownload(): Promise<void> {
   try {
     if (file.sourceUrl) {
       saveBlob(await fetchAuthenticatedBlob(file.sourceUrl, { profile: null }), file.name)
-    } else if (file.workspaceRoomId) {
-      await downloadGroupWorkspaceFile(file.workspaceRoomId, file.path, file.name)
     } else if (file.workspaceSessionId) {
       await downloadSessionWorkspaceFile(file.workspaceSessionId, file.path, file.name)
     } else {

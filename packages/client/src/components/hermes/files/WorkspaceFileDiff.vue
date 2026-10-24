@@ -5,7 +5,6 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FileEntry, WorkspaceFileDiff } from '@/api/studio/files'
 import { fetchSessionWorkspaceFileDiff, readSessionWorkspaceFile, downloadSessionWorkspaceFile } from '@/api/studio/sessions'
-import { fetchGroupWorkspaceFileDiff, readGroupWorkspaceFile, downloadGroupWorkspaceFile } from '@/api/studio/group-chat'
 import { getLanguageFromPath, isMarkdownFile, useFilesStore } from '@/stores/hermes/files'
 import { handleCodeBlockCopyClick, renderHighlightedCodeBlock } from '@/components/hermes/chat/highlight'
 import FileTreeToggle from './FileTreeToggle.vue'
@@ -16,7 +15,6 @@ const props = withDefaults(defineProps<{
   entry: FileEntry
   workspace?: string | null
   workspaceSessionId?: string | null
-  workspaceRoomId?: string | null
   showTreeToggle?: boolean
   treeCollapsed?: boolean
 }>(), {
@@ -36,8 +34,7 @@ async function downloadCurrentFile() {
   if (downloading.value || props.entry.isDir) return
   downloading.value = true
   try {
-    if (props.workspaceRoomId) await downloadGroupWorkspaceFile(props.workspaceRoomId, props.entry.path, props.entry.name)
-    else if (props.workspaceSessionId) await downloadSessionWorkspaceFile(props.workspaceSessionId, props.entry.path, props.entry.name)
+    if (props.workspaceSessionId) await downloadSessionWorkspaceFile(props.workspaceSessionId, props.entry.path, props.entry.name)
     else throw new Error(t('files.backendError'))
   } catch (error) { message.error(error instanceof Error ? error.message : t('download.downloadFailed')) }
   finally { downloading.value = false }
@@ -77,20 +74,16 @@ async function loadDiff(): Promise<void> {
   diff.value = null
   fileContent.value = null
   try {
-    const result = props.workspaceRoomId
-      ? await fetchGroupWorkspaceFileDiff(props.workspaceRoomId, props.entry.path)
-      : props.workspaceSessionId
-        ? await fetchSessionWorkspaceFileDiff(props.workspaceSessionId, props.entry.path)
-        : null
+    const result = props.workspaceSessionId
+      ? await fetchSessionWorkspaceFileDiff(props.workspaceSessionId, props.entry.path)
+      : null
     if (generation !== requestGeneration) return
     if (!result) throw new Error(t('chat.diffUnavailable'))
     diff.value = result
     if (!result.patch && !result.binary && !result.truncated) {
-      const file = props.workspaceRoomId
-        ? await readGroupWorkspaceFile(props.workspaceRoomId, props.entry.path)
-        : props.workspaceSessionId
-          ? await readSessionWorkspaceFile(props.workspaceSessionId, props.entry.path)
-          : null
+      const file = props.workspaceSessionId
+        ? await readSessionWorkspaceFile(props.workspaceSessionId, props.entry.path)
+        : null
       if (generation !== requestGeneration) return
       fileContent.value = file?.content ?? ''
     }
@@ -104,9 +97,7 @@ async function loadDiff(): Promise<void> {
 
 async function editFile(): Promise<void> {
   try {
-    if (props.workspaceRoomId) {
-      await filesStore.openGroupWorkspaceEditor(props.workspaceRoomId, props.entry.path)
-    } else if (props.workspaceSessionId) {
+    if (props.workspaceSessionId) {
       await filesStore.openSessionWorkspaceEditor(props.workspaceSessionId, props.entry.path)
     }
   } catch (editError) {
@@ -121,7 +112,7 @@ async function handleDiffClick(event: MouseEvent): Promise<void> {
 }
 
 watch(
-  () => [props.entry.path, props.workspaceSessionId, props.workspaceRoomId],
+  () => [props.entry.path, props.workspaceSessionId],
   () => { void loadDiff() },
   { immediate: true },
 )

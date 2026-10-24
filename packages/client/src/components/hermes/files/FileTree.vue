@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const effectiveProfile = computed(() => props.profile === undefined ? filesStore.currentProfile : props.profile)
-const workspaceMode = computed(() => Boolean(filesStore.currentWorkspaceSessionId || filesStore.currentWorkspaceRoomId))
+const workspaceMode = computed(() => Boolean(filesStore.currentWorkspaceSessionId))
 const rootLabel = computed(() => {
   const workspace = String(props.workspaceKey || '').replace(/[\\/]+$/, '')
   return workspace ? workspace.split(/[\\/]/).pop() || workspace : t('files.breadcrumbRoot')
@@ -40,7 +40,7 @@ let rootLoadSeq = 0
 
 async function loadChildren(path: string): Promise<GitTreeOption[]> {
   try {
-    const result = filesStore.currentWorkspaceSessionId || filesStore.currentWorkspaceRoomId
+    const result = filesStore.currentWorkspaceSessionId
       ? await filesStore.listEntries(path)
       : await filesStore.fetchDirectory(path, { profile: effectiveProfile.value })
     if (!path) {
@@ -158,7 +158,7 @@ const treeThemeOverrides = {
   nodeColorActive: 'rgba(var(--accent-primary-rgb), 0.1)',
 }
 
-watch([effectiveProfile, () => filesStore.currentWorkspaceSessionId, () => filesStore.currentWorkspaceRoomId, () => props.workspaceKey], async () => {
+watch([effectiveProfile, () => filesStore.currentWorkspaceSessionId, () => props.workspaceKey], async () => {
   const seq = ++rootLoadSeq
   selectedKeys.value = []
   treeInstanceKey.value += 1

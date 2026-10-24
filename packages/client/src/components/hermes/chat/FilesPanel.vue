@@ -11,7 +11,6 @@ import FileUploadModal from '@/components/hermes/files/FileUploadModal.vue'
 import FileRenameModal from '@/components/hermes/files/FileRenameModal.vue'
 import type { FileEntry } from '@/api/studio/files'
 import { fetchSessionWorkspaceAttachmentBlob } from '@/api/studio/sessions'
-import { fetchGroupWorkspaceAttachmentBlob } from '@/api/studio/group-chat'
 
 const FileEditor = defineAsyncComponent(async () => (await import('@/components/hermes/files/FileEditor.vue')).default)
 const FilePreview = defineAsyncComponent(async () => (await import('@/components/hermes/files/FilePreview.vue')).default)
@@ -23,7 +22,6 @@ const message = useMessage()
 
 const props = defineProps<{
   workspaceSessionId?: string | null
-  workspaceRoomId?: string | null
   workspace?: string | null
 }>()
 
@@ -131,9 +129,7 @@ async function handleAttach(entry: FileEntry) {
   try {
     const blob = props.workspaceSessionId
       ? await fetchSessionWorkspaceAttachmentBlob(props.workspaceSessionId, entry.path)
-      : props.workspaceRoomId
-        ? await fetchGroupWorkspaceAttachmentBlob(props.workspaceRoomId, entry.path)
-        : null
+      : null
     if (!blob) return
     emit('attach', new File([blob], entry.name, {
       type: blob.type || 'application/octet-stream',
@@ -189,18 +185,18 @@ function handleDiffClose(): void {
 }
 
 watch(
-  () => [props.workspaceSessionId, props.workspaceRoomId, props.workspace] as const,
-  ([workspaceSessionId, workspaceRoomId, workspace]) => {
+  () => [props.workspaceSessionId, props.workspace] as const,
+  ([workspaceSessionId, workspace]) => {
     selectedDiffEntry.value = null
     mobileFileOpen.value = false
     filesStore.closePreview()
-    if ((workspaceSessionId || workspaceRoomId) && workspace) {
-      if (!filesStore.currentWorkspaceSessionId && !filesStore.currentWorkspaceRoomId) lastStandardPath.value = filesStore.currentPath
-      void filesStore.fetchEntries('', { workspaceSessionId, workspaceRoomId })
+    if (workspaceSessionId && workspace) {
+      if (!filesStore.currentWorkspaceSessionId) lastStandardPath.value = filesStore.currentPath
+      void filesStore.fetchEntries('', { workspaceSessionId })
       return
     }
-    if (filesStore.currentWorkspaceSessionId || filesStore.currentWorkspaceRoomId) {
-      void filesStore.fetchEntries(lastStandardPath.value, { profile: null, workspaceSessionId: null, workspaceRoomId: null })
+    if (filesStore.currentWorkspaceSessionId) {
+      void filesStore.fetchEntries(lastStandardPath.value, { profile: null, workspaceSessionId: null })
     }
   },
 )
@@ -208,20 +204,19 @@ watch(
 watch(() => filesStore.previewFile, previewFile => {
   if (!previewFile || !isMobileLayout.value) return
   const matchesSession = props.workspaceSessionId && previewFile.workspaceSessionId === props.workspaceSessionId
-  const matchesRoom = props.workspaceRoomId && previewFile.workspaceRoomId === props.workspaceRoomId
-  if (matchesSession || matchesRoom || (!props.workspaceSessionId && !props.workspaceRoomId)) {
+  if (matchesSession || !props.workspaceSessionId) {
     mobileFileOpen.value = true
   }
 })
 
 onMounted(() => {
   mobileMediaQuery.addEventListener('change', handleMobileLayoutChange)
-  if ((props.workspaceSessionId || props.workspaceRoomId) && props.workspace) {
-    void filesStore.fetchEntries('', { workspaceSessionId: props.workspaceSessionId, workspaceRoomId: props.workspaceRoomId })
-  } else if (filesStore.currentWorkspaceSessionId || filesStore.currentWorkspaceRoomId) {
-    void filesStore.fetchEntries(lastStandardPath.value, { profile: null, workspaceSessionId: null, workspaceRoomId: null })
+  if (props.workspaceSessionId && props.workspace) {
+    void filesStore.fetchEntries('', { workspaceSessionId: props.workspaceSessionId })
+  } else if (filesStore.currentWorkspaceSessionId) {
+    void filesStore.fetchEntries(lastStandardPath.value, { profile: null, workspaceSessionId: null })
   } else if (!filesStore.entries.length && !filesStore.loading) {
-    void filesStore.fetchEntries('', { profile: null, workspaceSessionId: null, workspaceRoomId: null })
+    void filesStore.fetchEntries('', { profile: null, workspaceSessionId: null })
   }
 })
 
@@ -293,7 +288,6 @@ onBeforeUnmount(() => {
           :entry="selectedDiffEntry"
           :workspace="workspace"
           :workspace-session-id="workspaceSessionId"
-          :workspace-room-id="workspaceRoomId"
           :show-tree-toggle="!isMobileLayout"
           :tree-collapsed="treeCollapsed"
           @toggle-tree="toggleTreeCollapsed"
@@ -311,7 +305,7 @@ onBeforeUnmount(() => {
     </div>
     <FileContextMenu
       ref="contextMenuRef"
-      :allow-attach="Boolean(workspaceSessionId || workspaceRoomId)"
+      :allow-attach="Boolean(workspaceSessionId)"
       @attach="handleAttach"
       @rename="handleRename"
       @new-folder="handleContextNewFolder"
