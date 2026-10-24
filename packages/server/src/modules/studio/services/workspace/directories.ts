@@ -1,5 +1,4 @@
 import { resolve, join, win32 } from 'path'
-import { config, getWebUiHome } from '../../public/config'
 import { getProfileDir, listProfileNamesFromDisk } from '../../public/profile-config'
 import {
   listWorkspaceDirectories, recordWorkspaceDirectory, setWorkspaceDirectoryFavorite,
@@ -20,8 +19,6 @@ function pathKey(path: string): string {
 
 function generatedWorkspaceRoots(): string[] {
   return [
-    join(getWebUiHome(), 'coding-agent', 'workspace'),
-    join(config.appHome, '.ekko', 'workspace'),
     ...listProfileNamesFromDisk().map(profile => join(getProfileDir(profile), 'workspace')),
   ].map(root => pathKey(normalizeWorkspaceDirectory(root)))
 }

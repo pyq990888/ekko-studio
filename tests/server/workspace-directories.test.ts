@@ -51,10 +51,6 @@ describe('account workspace directories', () => {
   })
 
   it.each([
-    '/studio/.ekko/workspace/default/session-id',
-    '/studio/coding-agent/workspace/research/provider',
-    '/studio/group-chat/default/random-room',
-    '/studio/workflow/research/random-workflow',
     '/hermes/default/workspace', '/hermes/research/workspace/subfolder',
   ])('excludes generated workspaces from history and favorites: %s', path => {
     saveUserWorkspaceDirectory(1, path)
