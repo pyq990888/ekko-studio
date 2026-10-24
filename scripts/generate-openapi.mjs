@@ -1107,13 +1107,11 @@ openapi.paths['/api/studio/chat-run/runs'] = {
               },
               coding_agent_id: {
                 type: 'string',
-                enum: ['claude-code', 'codex', 'pi', 'grok', 'opencode', 'ekko-agent'],
-                description: 'External coding-agent runtime id. ekko-agent is accepted for legacy clients; new native Ekko requests use agent_id.',
+                description: 'Legacy coding-agent runtime id. Removed runtimes are read-only; new runs are rejected.',
               },
               agent_id: {
                 type: 'string',
-                enum: ['claude-code', 'codex', 'pi', 'grok', 'opencode', 'ekko-agent'],
-                description: 'Runtime id. Use ekko-agent for native Ekko with source=builtin_agent; external CLI ids remain accepted.',
+                description: 'Legacy runtime id. Removed runtimes are read-only; new runs are rejected.',
               },
               mode: {
                 type: 'string',

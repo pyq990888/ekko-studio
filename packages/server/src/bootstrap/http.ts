@@ -25,8 +25,6 @@ import { ensureProfileGatewaysRunning } from '../modules/hermes/services/gateway
 import { runRegisteredStartupTasks } from './startup-tasks'
 import { refreshConfiguredProviderModelCatalogsInBackground } from '../modules/hermes/services/providers/model-catalog-cache'
 import { refreshModelCatalog } from '../modules/studio/public/model-catalog'
-import { setupGlobalEkkoAgent } from './ekko'
-import { injectManagedEkkoMcpServers } from '../modules/ekko/services/mcp'
 import { logger } from '../modules/studio/public/logging'
 import { createStaticCompressionMiddleware } from '../modules/studio/middleware/static-compression'
 import { getStaticCacheControl, SPA_ENTRY_CACHE_CONTROL } from '../modules/studio/middleware/static-cache'

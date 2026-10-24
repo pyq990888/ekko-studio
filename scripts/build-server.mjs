@@ -55,11 +55,3 @@ cpSync(
   skillsOutDir,
   { recursive: true },
 )
-
-const ekkoSkillsOutDir = resolve(rootDir, 'dist/ekko-skills')
-rmSync(ekkoSkillsOutDir, { recursive: true, force: true })
-cpSync(
-  resolve(rootDir, 'packages/ekko-agent/skills'),
-  ekkoSkillsOutDir,
-  { recursive: true },
-)

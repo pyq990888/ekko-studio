@@ -1,7 +1,6 @@
 import { forceStopManagedGateways, shutdownManagedGateways } from '../modules/hermes/services/gateway/runner'
 import { closeDb } from '../modules/studio/infrastructure/database'
 import { logger } from '../modules/studio/public/logging'
-import { closeGlobalEkkoAgent } from '../modules/ekko/services/manager'
 import { stopChatWebhookDispatcher } from '../modules/studio/services/webhooks'
 import { stopPreviewRuntime } from './update'
 
@@ -161,7 +160,6 @@ export function createShutdownHandler(
           ))).then(() => undefined))
         }
       } finally {
-        await runShutdownStep('Global Ekko agent', () => closeGlobalEkkoAgent())
         await runShutdownStep('Database', () => closeDb())
         clearTimeout(forceExitTimer)
         logger.info({ durationMs: Date.now() - shutdownStartedAt }, 'Shutdown cleanup complete')
