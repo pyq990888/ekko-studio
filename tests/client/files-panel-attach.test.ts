@@ -6,14 +6,10 @@ import { defineComponent } from 'vue'
 import type { FileEntry } from '@/api/studio/files'
 
 const fetchSessionAttachment = vi.hoisted(() => vi.fn())
-const fetchGroupAttachment = vi.hoisted(() => vi.fn())
 const message = vi.hoisted(() => ({ error: vi.fn() }))
 
 vi.mock('@/api/studio/sessions', () => ({
   fetchSessionWorkspaceAttachmentBlob: fetchSessionAttachment,
-}))
-vi.mock('@/api/studio/group-chat', () => ({
-  fetchGroupWorkspaceAttachmentBlob: fetchGroupAttachment,
 }))
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -103,20 +99,6 @@ describe('FilesPanel workspace attachments', () => {
     const file = wrapper.emitted<File[]>('attach')?.[0]?.[0]
     expect(file).toBeInstanceOf(File)
     expect(file).toMatchObject({ name: 'report.pdf', type: 'application/pdf', size: 5 })
-  })
-
-  it('loads a group workspace file from the room endpoint', async () => {
-    fetchGroupAttachment.mockResolvedValue(new Blob(['hello'], { type: 'text/plain' }))
-    const wrapper = mount(FilesPanel, {
-      props: { workspaceRoomId: 'room-1', workspace: '/tmp/room' },
-      global: { plugins: [createTestingPinia({ createSpy: vi.fn })] },
-    })
-
-    wrapper.getComponent({ name: 'FileContextMenuStub' }).vm.$emit('attach', entry)
-    await flushPromises()
-
-    expect(fetchGroupAttachment).toHaveBeenCalledWith('room-1', 'reports/report.pdf')
-    expect(wrapper.emitted('attach')).toHaveLength(1)
   })
 
   it('replaces the mobile tree with a selected file and returns to the same tree', async () => {

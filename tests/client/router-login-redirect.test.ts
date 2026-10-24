@@ -39,19 +39,15 @@ describe('router login redirect', () => {
     expect(router.currentRoute.value.name).toBe('hermes.chat')
   }, 60_000)
 
-  it('returns an authenticated Agent handoff login to the link page', async () => {
+  it('returns an authenticated handoff login to its same-origin redirect path', async () => {
     mockHasApiKey.mockReturnValue(true)
     const router = await loadRouter()
-    const redirect = '/group-chat-link?cloudOrigin=http%3A%2F%2F47.243.215.84%3A8088&requestId=handoff-id'
 
-    await router.push({ name: 'login', query: { redirect } })
+    await router.push({ name: 'login', query: { redirect: '/hermes/chat?profile=research' } })
     await router.isReady()
 
-    expect(router.currentRoute.value.name).toBe('groupChat.link')
-    expect(router.currentRoute.value.query).toEqual({
-      cloudOrigin: 'http://47.243.215.84:8088',
-      requestId: 'handoff-id',
-    })
+    expect(router.currentRoute.value.name).toBe('hermes.chat')
+    expect(router.currentRoute.value.query).toEqual({ profile: 'research' })
   })
 
   it('does not redirect desktop login when a stale token exists', async () => {

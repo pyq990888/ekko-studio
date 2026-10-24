@@ -11,14 +11,15 @@ const historyViewSource = readFileSync(
 )
 
 describe('page sidebar conversation switch', () => {
-  it('places history after single chat, group chat, and workflow', () => {
-    const switchStart = navSource.indexOf('conversation-switch conversation-switch--four')
+  it('places history after the single chat tab', () => {
+    const switchStart = navSource.indexOf('class="conversation-switch"')
     const switchSource = navSource.slice(switchStart)
 
     expect(switchStart).toBeGreaterThan(-1)
-    expect(switchSource.indexOf('@click="openChat"')).toBeLessThan(switchSource.indexOf('@click="openGroupChat"'))
-    expect(switchSource.indexOf('@click="openGroupChat"')).toBeLessThan(switchSource.indexOf('@click="openWorkflow"'))
-    expect(switchSource.indexOf('@click="openWorkflow"')).toBeLessThan(switchSource.indexOf('@click="openHistory"'))
+    expect(switchSource.indexOf('@click="openChat"')).toBeGreaterThan(-1)
+    expect(switchSource.indexOf('@click="openChat"')).toBeLessThan(switchSource.indexOf('@click="openHistory"'))
+    expect(navSource).not.toContain('@click="openGroupChat"')
+    expect(navSource).not.toContain('@click="openWorkflow"')
     expect(navSource.match(/@click="openHistory"/g)).toHaveLength(1)
   })
 

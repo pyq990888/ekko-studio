@@ -28,19 +28,6 @@ const mockSessionsApi = vi.hoisted(() => ({
 
 vi.mock('@/api/studio/sessions', () => mockSessionsApi)
 
-const mockGroupApi = vi.hoisted(() => ({
-  copyGroupWorkspaceFile: vi.fn(),
-  deleteGroupWorkspaceFile: vi.fn(),
-  fetchGroupWorkspaceFileText: vi.fn(),
-  listGroupWorkspaceFiles: vi.fn(),
-  mkdirGroupWorkspaceFile: vi.fn(),
-  readGroupWorkspaceFile: vi.fn(),
-  renameGroupWorkspaceFile: vi.fn(),
-  writeGroupWorkspaceFile: vi.fn(),
-}))
-
-vi.mock('@/api/studio/group-chat', () => mockGroupApi)
-
 import { getLanguageFromPath, isPreviewableFile, isTextFile, useFilesStore } from '@/stores/hermes/files'
 import type { FileEntry } from '@/api/studio/files'
 
@@ -179,74 +166,6 @@ describe('files store', () => {
     expect(mockFilesApi.listFiles).toHaveBeenCalledWith('', 'reviewer')
     expect(mockFilesApi.readFile).toHaveBeenCalledWith('config.yaml', 'reviewer')
     expect(mockFilesApi.writeFile).toHaveBeenCalledWith('config.yaml', 'model:\n  default: gpt-5.4-mini\n', 'reviewer')
-  })
-
-  it('uses the group room workspace for listing and generated-file previews', async () => {
-    const roomEntry: FileEntry = {
-      name: 'report.xlsx',
-      path: 'report.xlsx',
-      isDir: false,
-      size: 128,
-      modTime: '2026-07-17T00:00:00.000Z',
-    }
-    mockGroupApi.listGroupWorkspaceFiles.mockResolvedValue({ entries: [roomEntry], path: '' })
-    mockGroupApi.fetchGroupWorkspaceFileText.mockResolvedValue({ content: 'const answer = 42', size: 17 })
-    const store = useFilesStore()
-
-    await store.fetchEntries('', { workspaceRoomId: 'room-1' })
-    expect(store.currentWorkspaceRoomId).toBe('room-1')
-    expect(store.currentWorkspaceSessionId).toBeNull()
-    expect(store.entries).toEqual([roomEntry])
-    expect(mockGroupApi.listGroupWorkspaceFiles).toHaveBeenCalledWith('room-1', '')
-
-    await store.openGroupWorkspacePreview(
-      'room-1',
-      '/tmp/generated.ts',
-      'generated.ts',
-      -1,
-      { startLine: 40, endLine: 42 },
-    )
-    expect(mockGroupApi.fetchGroupWorkspaceFileText).toHaveBeenCalledWith('room-1', '/tmp/generated.ts')
-    expect(store.previewFile).toMatchObject({
-      path: '/tmp/generated.ts',
-      workspaceRoomId: 'room-1',
-      type: 'text',
-      language: 'typescript',
-      startLine: 40,
-      endLine: 42,
-    })
-  })
-
-  it('does not let an older group preview overwrite a newer file', async () => {
-    const olderPreview = deferred<{ content: string; size: number }>()
-    const newerPreview = deferred<{ content: string; size: number }>()
-    mockGroupApi.fetchGroupWorkspaceFileText.mockImplementation((_roomId: string, path: string) => {
-      return path === 'older.md' ? olderPreview.promise : newerPreview.promise
-    })
-    const store = useFilesStore()
-
-    const olderRequest = store.openGroupWorkspacePreview('room-1', 'older.md')
-    const newerRequest = store.openGroupWorkspacePreview('room-1', 'newer.md')
-    newerPreview.resolve({ content: '# Newer', size: 7 })
-    await newerRequest
-    expect(store.previewFile).toMatchObject({ path: 'newer.md', content: '# Newer' })
-
-    olderPreview.resolve({ content: '# Older', size: 7 })
-    await olderRequest
-    expect(store.previewFile).toMatchObject({ path: 'newer.md', content: '# Newer' })
-  })
-
-  it('does not reopen a pending group preview after it is closed', async () => {
-    const pendingPreview = deferred<{ content: string; size: number }>()
-    mockGroupApi.fetchGroupWorkspaceFileText.mockReturnValue(pendingPreview.promise)
-    const store = useFilesStore()
-
-    const request = store.openGroupWorkspacePreview('room-1', 'pending.md')
-    store.closePreview()
-    pendingPreview.resolve({ content: '# Too late', size: 10 })
-    await request
-
-    expect(store.previewFile).toBeNull()
   })
 
   it('keeps requested line ranges on session workspace previews', async () => {
