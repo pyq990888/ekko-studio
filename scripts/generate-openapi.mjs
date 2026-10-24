@@ -1407,7 +1407,8 @@ const shareChangeSchema = { type: 'object', additionalProperties: false, propert
 } }
 const shareBody = schema => ({ required: true, content: { 'application/json': { schema } } })
 for (const kind of ['synthesize', 'transcribe']) {
-  const operation = openapi.paths[`/api/studio/sessions/{id}/share-voice/${kind}`].post
+  const operation = openapi.paths[`/api/studio/sessions/{id}/share-voice/${kind}`]?.post
+  if (!operation) continue
   operation.operationId = kind === 'synthesize' ? 'synthesizeSessionShareSpeech' : 'transcribeSessionShareSpeech'
   operation.security = [{ AppAccessToken: [], SessionShareToken: [] }]
   operation['x-session-share-permission'] = 'voice'
@@ -1423,6 +1424,7 @@ for (const kind of ['synthesize', 'transcribe']) {
   operation.responses['410'] = { description: 'Share expired or revoked' }
 }
 const shareContextPath = openapi.paths['/api/studio/sessions/{id}/share-context-length']
+if (shareContextPath) {
 for (const method of ['get', 'put']) {
   const operation = shareContextPath[method]
   operation.operationId = method === 'get' ? 'getSessionShareContextLength' : 'setSessionShareContextLength'
@@ -1441,6 +1443,7 @@ shareContextPath.put.requestBody = shareBody({ type: 'object', additionalPropert
     context_limit: { type: 'integer', minimum: 1000, maximum: 10000000 },
   },
 })
+}
 openapi.components.schemas.SessionShare = {
   type: 'object', additionalProperties: false,
   properties: {
