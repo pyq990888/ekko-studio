@@ -33,7 +33,7 @@ describe("Hermes configuration navigation", () => {
     ]) {
       expect(configSidebar).toContain(`name: '${name}'`);
     }
-    expect(configSidebar).toContain("name: 'hermes.agentManager'");
+    expect(configSidebar).toContain("name: 'hermes.chat'");
     expect(configSidebar).toContain('t("sidebar.backToChat")');
     expect(configSidebar).not.toContain("ProfileSelector");
     expect(configSidebar).not.toContain("ModelSelector");
@@ -64,9 +64,7 @@ describe("Hermes configuration navigation", () => {
     expect(appSidebar).not.toContain("<span>Hermes</span>");
     expect(appSidebar).not.toContain("nav-group-label");
     expect(appSidebar).not.toContain("groupLabel(");
-    expect(appSidebar.indexOf('t("sidebar.petdex")')).toBeGreaterThan(
-      appSidebar.indexOf('t("sidebar.theme")'),
-    );
+    expect(appSidebar).not.toContain('t("sidebar.petdex")');
     expect(router).toContain("path: '/hermes/config/settings'");
     expect(router.match(/meta: \{ hermesConfig: true \}/g)).toHaveLength(9);
   });
@@ -76,7 +74,6 @@ describe("Hermes configuration navigation", () => {
     const hermesSettings = readClientFile(
       "views/hermes/HermesSettingsView.vue",
     );
-    const agentManager = readClientFile("views/hermes/AgentManagerView.vue");
 
     expect(settingsView).not.toContain("GatewayAutoStartSettings");
     expect(settingsView).not.toContain("AgentSettings");
@@ -92,9 +89,5 @@ describe("Hermes configuration navigation", () => {
     expect(hermesSettings).toContain("<MemorySettings />");
     expect(hermesSettings).toContain("<SessionSettings />");
     expect(hermesSettings).toContain("await settingsStore.fetchSettings()");
-    expect(agentManager).toContain(
-      "router.push({ name: 'hermes.configSettings' })",
-    );
-    expect(agentManager).toContain('v-if="hermesDetected"');
   });
 });

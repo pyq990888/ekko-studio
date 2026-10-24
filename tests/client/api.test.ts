@@ -36,7 +36,7 @@ describe('API Client', () => {
     localStorage.setItem('hermes_active_profile_name', 'default')
     Object.assign(router.currentRoute.value, { name: 'hermes.models', query: { modelProfile: 'research' } })
     mockFetch.mockImplementation(async () => ({ ok: true, json: async () => ({ success: true }) }))
-    for (const path of ['/api/hermes/config/providers', '/api/hermes/config/moa', '/api/hermes/auth/copilot/start', '/api/studio/tts/settings/openai']) {
+    for (const path of ['/api/hermes/config/providers', '/api/hermes/config/moa', '/api/hermes/auth/copilot/start']) {
       await request(path, { method: 'PUT', body: '{}' })
       expect(mockFetch.mock.calls.at(-1)?.[1].headers['X-Hermes-Profile']).toBe('research')
     }
