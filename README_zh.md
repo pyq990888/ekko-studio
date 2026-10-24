@@ -317,37 +317,28 @@ ekko-studio-web reset-default-login
 
 ## 快速开始
 
-### 桌面应用（推荐）
+### Docker Compose（推荐）
 
-从 [GitHub Releases](https://github.com/EKKOLearnAI/ekko-studio/releases/latest)
-下载最新的 **Ekko Studio** 桌面安装包。
+单容器部署，基础镜像内置 Hermes Agent 运行时：
 
-桌面版会发布 macOS、Windows 和 Linux 构建；适用时会区分不同 CPU 架构。
-桌面应用内置 Studio 运行时；在 Windows、macOS 和 Linux 上，Hermes Agent 数据统一保存到 `~/.hermes`。
+```bash
+# 使用预构建镜像
+WEBUI_IMAGE=ekkoye8888/hermes-web-ui docker compose up -d
 
-桌面壳自身的 Studio 状态会单独保存到 `~/.hermes-web-ui`，除非设置了
-`HERMES_WEB_UI_HOME`。
+# 或从源码构建
+docker compose up -d --build
 
-打包后的桌面应用启动后，会安装受管命令 shim，避免桌面应用、内置 Hermes Agent CLI
-和内置服务端 CLI 的命令互相冲突：
+docker compose logs -f hermes-webui
+```
 
-| 命令 | 说明 |
-|---|---|
-| `ekko-studio` | 打开 Ekko Studio 桌面应用 |
-| `ekko-studio cli ...` | 运行内置 Hermes Agent CLI |
-| `ekko-studio web ...` | 运行内置 `hermes-web-ui` 命令 |
-| `ekko-studio -h` | 显示 wrapper 帮助 |
-| `ekko-studio-mcp [api\|browser\|devices\|use\|plan]` | 运行指定的受管 Studio MCP 工具集 |
+打开 **http://localhost:6060**
 
-桌面命令统一为 `ekko-studio`；安装新命令时会移除旧的受管 `hermes-studio` 命令，不保留兼容别名。
+- Hermes 持久化数据目录：`./hermes_data`
+- Web UI 认证 Token 存储在 `./hermes_data/hermes-web-ui/.token`
+- 首次启动并开启认证时，Token 会打印到容器日志中
+- 运行参数全部由 `docker-compose.yml` 环境变量驱动
 
-使用 `ekko-studio cli -h` 查看 Hermes Agent CLI 帮助，使用
-`ekko-studio web -h` 查看服务端 CLI 帮助。`ekko-studio-mcp` 默认暴露
-`api` 工具集；按任务选择 `browser`、`devices`、`use` 或 `plan`，可以缩小 MCP 暴露面。
-
-桌面自动更新会优先读取 `https://download.ekkolearnai.com/latest`。
-如果该端点不可用，更新器会回退到
-`https://github.com/EKKOLearnAI/ekko-studio/releases/latest/download`。
+更详细的说明与排错见：[`docs/docker.md`](./docs/docker.md)
 
 ### npm 安装
 
@@ -362,30 +353,8 @@ ekko-studio-web start
 
 打开 **http://localhost:8648**
 
-需要 Node.js **23 或更高版本**。Ekko Agent 随包内置；使用 Hermes Agent 时，需在同一台机器安装其运行时，或选择内置运行时的桌面版/Docker。
-
-### Docker Compose
-
-单容器部署，内置 Hermes Agent 运行时：
-
-```bash
-# 使用预构建镜像（推荐）
-WEBUI_IMAGE=ekkoye8888/hermes-web-ui docker compose up -d
-
-# 或从源码构建
-docker compose up -d --build
-
-docker compose logs -f hermes-webui
-```
-
-打开 **http://localhost:6060**
-
-- Hermes 持久化数据目录：`./hermes_data`
-- Studio 认证 Token 存储在 `./hermes_data/hermes-web-ui/.token`
-- 首次启动并开启认证时，Token 会打印到容器日志中
-- 运行参数全部由 `docker-compose.yml` 环境变量驱动
-
-更详细的说明与排错见：[`docs/docker.md`](./docs/docker.md)
+需要 Node.js **23 或更高版本**，并在同一台机器安装 Hermes Agent 运行时。
+Docker 部署的基础镜像已内置 Hermes 运行时。
 
 ### Hermes Agent 运行时发现
 

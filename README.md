@@ -318,41 +318,30 @@ ekko-studio-web reset-default-login
 
 ## Quick Start
 
-### Desktop App (Recommended)
+### Docker Compose (Recommended)
 
-Download the latest **Ekko Studio** desktop installer from
-[GitHub Releases](https://github.com/EKKOLearnAI/ekko-studio/releases/latest).
+Single-container deployment with the Hermes Agent runtime bundled in the base
+image:
 
-Desktop builds are published for macOS, Windows, and Linux, with separate
-architecture assets where applicable. The desktop app bundles the Studio
-runtime and stores Hermes Agent data in `~/.hermes` on Windows, macOS, and Linux.
+```bash
+# Use the pre-built image
+WEBUI_IMAGE=ekkoye8888/hermes-web-ui docker compose up -d
 
-The desktop wrapper stores its own Studio state separately in
-`~/.hermes-web-ui` unless `HERMES_WEB_UI_HOME` is set.
+# Or build from source
+docker compose up -d --build
 
-After the packaged desktop app starts, it installs managed command shims so the
-desktop app, bundled Hermes Agent CLI, and bundled server CLI do not conflict:
+docker compose logs -f hermes-webui
+```
 
-| Command | Description |
-| --- | --- |
-| `ekko-studio` | Open the Ekko Studio desktop app |
-| `ekko-studio cli ...` | Run the bundled Hermes Agent CLI |
-| `ekko-studio web ...` | Run the bundled `hermes-web-ui` command |
-| `ekko-studio -h` | Show wrapper help |
-| `ekko-studio-mcp [api\|browser\|devices\|use\|plan]` | Run one managed Studio MCP toolset |
+Open **http://localhost:6060**
 
-The desktop command is `ekko-studio`; the previous managed `hermes-studio`
-command is removed when the new shim is installed. No compatibility alias is created.
+- Persistent Hermes data is stored in `./hermes_data`
+- Web UI auth token is stored in `./hermes_data/hermes-web-ui/.token`
+- On first run with auth enabled, the token is printed to container logs
+- All runtime settings are environment-variable driven in `docker-compose.yml`
 
-Use `ekko-studio cli -h` for Hermes Agent CLI help and
-`ekko-studio web -h` for server CLI help. `ekko-studio-mcp` defaults to the
-`api` toolset; choose `browser`, `devices`, `use`, or `plan` to keep the exposed MCP
-surface focused on the current task.
-
-Desktop auto-updates read the latest feed from
-`https://download.ekkolearnai.com/latest` first. If that endpoint is
-unavailable, the updater falls back to
-`https://github.com/EKKOLearnAI/ekko-studio/releases/latest/download`.
+For detailed notes, environment variables, and troubleshooting, see
+[`docs/docker.md`](./docs/docker.md).
 
 ### npm
 
@@ -368,30 +357,8 @@ package before installing the other. User data remains in `~/.hermes-web-ui`.
 
 Open **http://localhost:8648**
 
-Requires Node.js **23 or newer**. Ekko Agent is included; to use Hermes Agent, install its runtime on the same machine or use the bundled Desktop/Docker distribution.
-
-### Docker Compose
-
-Single-container deployment with integrated Hermes Agent:
-
-```bash
-# Use pre-built image (Recommended)
-WEBUI_IMAGE=ekkoye8888/hermes-web-ui docker compose up -d
-
-# Or build from source
-docker compose up -d --build
-
-docker compose logs -f hermes-webui
-```
-
-Open **http://localhost:6060**
-
-- Persistent Hermes data is stored in `./hermes_data`
-- Studio auth token is stored in `./hermes_data/hermes-web-ui/.token`
-- On first run with auth enabled, the token is printed to container logs
-- All runtime settings are environment-variable driven in `docker-compose.yml`
-
-For detailed notes and troubleshooting, see [`docs/docker.md`](./docs/docker.md).
+Requires Node.js **23 or newer** and an installed Hermes Agent runtime on the
+same machine. Docker deployments include the Hermes runtime in the base image.
 
 ### Hermes Agent Runtime Discovery
 
