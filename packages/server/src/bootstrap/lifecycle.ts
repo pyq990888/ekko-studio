@@ -4,7 +4,6 @@ import { shutdownDshPluginOperations } from '../modules/coding-agents/services/d
 import { forceStopManagedGateways, shutdownManagedGateways } from '../modules/hermes/services/gateway/runner'
 import { closeDb } from '../modules/studio/infrastructure/database'
 import { logger } from '../modules/studio/public/logging'
-import { shutdownLocalSttRuntime } from '../modules/studio/services/voice/stt/local-model-manager'
 import { stopAppRelayClient } from '../modules/studio/services/app-relay/client'
 import { closeGlobalEkkoAgent } from '../modules/ekko/services/manager'
 import { stopChatWebhookDispatcher } from '../modules/studio/services/webhooks'
@@ -136,7 +135,6 @@ export function createShutdownHandler(
         await runShutdownStep('Preview runtime', stopPreviewRuntime)
         await runShutdownStep('DSH plugin operations', shutdownDshPluginOperations)
         await runShutdownStep('DSH management host', shutdownDshManagement)
-        await runShutdownStep('Local STT runtime', shutdownLocalSttRuntime)
 
         // Stop accepting/routing chat work before stopping the bridge. This
         // lets ChatRunSocket release claimed background completions while the
