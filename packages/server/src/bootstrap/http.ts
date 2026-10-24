@@ -33,7 +33,6 @@ import { ensureProfileGatewaysRunning } from '../modules/hermes/services/gateway
 import { runRegisteredStartupTasks } from './startup-tasks'
 import { refreshConfiguredProviderModelCatalogsInBackground } from '../modules/hermes/services/providers/model-catalog-cache'
 import { refreshModelCatalog } from '../modules/studio/public/model-catalog'
-import { startGlobalAgentServer } from '../modules/studio/public/global-agent'
 import { startLocalAppRelayServer } from '../modules/studio/services/app-relay/server'
 import {
   hasPendingCloudAppConnectionRevocations,
@@ -606,9 +605,6 @@ export async function bootstrap() {
     name: 'Workflow Socket.IO runtime',
     close: () => workflowSocketServer?.close(),
   })
-
-  startGlobalAgentServer(hub.io, { localBaseUrl: loopbackBaseUrl })
-  console.log('[bootstrap] global agent server ready')
 
   // Session deleter — periodically drain pending session deletes
   const { SessionDeleter } = await import('../modules/hermes/services/history/session-deleter')

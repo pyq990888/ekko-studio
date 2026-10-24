@@ -1,7 +1,6 @@
 import type { Context, Next } from 'koa'
 import './hermes-ops-adapter'
 import './agent-log-adapter'
-import './mcu-voice-adapter'
 import './workflow-runtime-adapter'
 import './chat-agent-runtime-adapter'
 import './group-chat-agent-runtime-adapter'
