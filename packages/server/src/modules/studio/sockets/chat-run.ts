@@ -187,6 +187,13 @@ function isRemovedRunSource(source?: string): boolean {
   return source === 'coding_agent' || source === 'builtin_agent'
 }
 
+function isRemovedRuntimeSession(session?: { source?: string | null; agent?: string | null } | null): boolean {
+  if (!session) return false
+  if (isRemovedRunSource(session.source || undefined)) return true
+  const agent = String(session.agent || '').trim().toLowerCase()
+  return Boolean(agent && agent !== 'hermes')
+}
+
 function removedRunError(): Error {
   return new Error('This session belongs to a removed runtime and is read-only')
 }
@@ -924,7 +931,7 @@ export class ChatRunSocket {
       }
       if (data.session_id) {
         const source = resolveRunSource(data.source, data.session_id)
-        if (isRemovedRunSource(source)) {
+        if (isRemovedRunSource(source) || isRemovedRuntimeSession(getSession(data.session_id))) {
           socket.emit('run.failed', {
             event: 'run.failed',
             session_id: data.session_id,
@@ -1436,7 +1443,9 @@ export class ChatRunSocket {
     pushTargetId?: string,
   ) {
     const source = resolveRunSource(data.source, data.session_id)
-    if (isRemovedRunSource(source)) throw removedRunError()
+    if (isRemovedRunSource(source) || isRemovedRuntimeSession(data.session_id ? getSession(data.session_id) : undefined)) {
+      throw removedRunError()
+    }
     const surface = data.session_source || source
     if (data.session_id) getOrCreateSession(this.sessionMap, data.session_id).pushTargetId = pushTargetId
     if (data.session_id) {
@@ -2321,7 +2330,7 @@ export class ChatRunSocket {
     if (!sessionId) throw new Error('session_id is required')
     const profile = options.profile || data.profile || getSession(sessionId)?.profile || getActiveProfileName() || 'default'
     const source = resolveRunSource(data.source, sessionId)
-    if (isRemovedRunSource(source)) throw removedRunError()
+    if (isRemovedRunSource(source) || isRemovedRuntimeSession(getSession(sessionId))) throw removedRunError()
     const pushTargetId = options.pushRoot ? getRunPushTarget(options.pushRoot)?.id : undefined
     const state = getOrCreateSession(this.sessionMap, sessionId)
     state.events = []

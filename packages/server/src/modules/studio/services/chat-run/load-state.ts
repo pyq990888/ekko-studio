@@ -44,8 +44,15 @@ function restoreBackgroundDelegations(messages: any[]): SessionState['background
 export function resolveRunSource(source?: string, sessionId?: string): ChatRunSource {
   if (source === 'builtin_agent' || source === 'coding_agent' || source === 'global_agent' || source === 'workflow' || source === 'group_chat' || source === 'cli') return source
   if (sessionId) {
-    const stored = getSession(sessionId)?.source
-    if (stored === 'builtin_agent' || stored === 'coding_agent' || stored === 'global_agent' || stored === 'workflow' || stored === 'group_chat' || stored === 'cli') return stored
+    const stored = getSession(sessionId)
+    const storedSource = stored?.source
+    if (storedSource === 'builtin_agent' || storedSource === 'coding_agent'
+      || storedSource === 'global_agent' || storedSource === 'workflow' || storedSource === 'group_chat') {
+      return storedSource
+    }
+    const agent = String(stored?.agent || '').trim().toLowerCase()
+    if (agent === 'ekko' || agent === 'ekko-agent' || agent === 'ekko_agent') return 'builtin_agent'
+    if (agent && agent !== 'hermes') return 'coding_agent'
   }
   return 'cli'
 }
