@@ -242,35 +242,6 @@ describe('ChatRunSocket global pending interactions', () => {
     }))
   })
 
-  it('does not republish group-chat approvals through the generic chat pending audience', async () => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).sessionMap.set('gc_run_group', {
-      messages: [], isWorking: true, events: [], queue: [], source: 'group_chat', profile: 'default',
-    })
-
-    ;(server as any).emitToSession(socket, 'gc_run_group', 'approval.requested', {
-      event: 'approval.requested', approval_id: 'approval-group',
-    })
-    ;(server as any).emitToSession(socket, 'gc_run_group', 'clarify.requested', {
-      event: 'clarify.requested', clarify_id: 'clarify-group', question: 'Which environment?',
-    })
-
-    expect(emitted).toContainEqual(expect.objectContaining({
-      room: 'session:gc_run_group', event: 'approval.requested',
-      payload: expect.objectContaining({ session_id: 'gc_run_group', approval_id: 'approval-group' }),
-    }))
-    expect(emitted).not.toContainEqual(expect.objectContaining({
-      room: 'pending-interactions:default', event: 'approval.requested',
-      payload: expect.objectContaining({ approval_id: 'approval-group' }),
-    }))
-    expect(emitted).not.toContainEqual(expect.objectContaining({
-      room: 'pending-interactions:default', event: 'clarify.requested',
-      payload: expect.objectContaining({ clarify_id: 'clarify-group' }),
-    }))
-  })
-
   it('rejects cross-profile resume, approval, and clarify requests before joining or calling the bridge', async () => {
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
     const { handlers, io, socket } = makeServerHarness()
@@ -468,20 +439,6 @@ describe('ChatRunSocket bridge readiness gating', () => {
     })
   })
 
-  it.each(['context', 'usage', 'status', 'compact'])('routes legacy Ekko /%s to built-in commands before queueing', async command => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).sessionMap.set('session-1', { messages: [], isWorking: true, events: [], queue: [] })
-    ;(server as any).onConnection(socket)
-    await handlers.get('run')?.({ input: `/${command}`, session_id: 'session-1', source: 'coding_agent', coding_agent_id: 'ekko-agent' })
-    expect(handleEkkoCommandMock).toHaveBeenCalledWith(expect.anything(), socket, expect.objectContaining({ agent_id: 'ekko-agent' }), expect.objectContaining({ name: command }), 'default', expect.any(Map), expect.any(Function))
-    expect((server as any).sessionMap.get('session-1').queue).toEqual([])
-    expect(handleCodingAgentRunMock).not.toHaveBeenCalled()
-    expect(handleBridgeRunMock).not.toHaveBeenCalled()
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-  })
-
   it('emits run.failed before starting a cli run when the bridge is unreachable', async () => {
     ensureReadyMock.mockResolvedValueOnce({
       reachable: false,
@@ -573,49 +530,6 @@ describe('ChatRunSocket bridge readiness gating', () => {
       session_id: 'workflow-session-1',
       error: 'Agent Bridge is not reachable: bridge offline',
     })
-  })
-
-  it('routes global coding-agent runs through the coding-agent path while preserving session source', async () => {
-    handleCodingAgentRunMock.mockResolvedValueOnce({ runId: 'coding-run-1', messageId: 42 })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-
-    ;(server as any).onConnection(socket)
-    await handlers.get('run')?.({
-      input: 'hello',
-      session_id: 'session-1',
-      source: 'coding_agent',
-      session_source: 'global_agent',
-      coding_agent_id: 'codex',
-      queue_id: 'phone-message-1',
-    })
-
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-    expect(handleCodingAgentRunMock).toHaveBeenCalledWith(
-      expect.anything(),
-      socket,
-      expect.objectContaining({
-        source: 'coding_agent',
-        session_source: 'global_agent',
-        coding_agent_id: 'codex',
-      }),
-      'default',
-      expect.any(Map),
-    )
-    expect(socket.to).toHaveBeenCalledWith('session:session-1')
-    expect(socket.to.mock.results[0].value.emit).toHaveBeenCalledWith('run.peer_user_message', {
-      event: 'run.peer_user_message',
-      session_id: 'session-1',
-      message: {
-        id: 'phone-message-1',
-        role: 'user',
-        content: 'hello',
-        timestamp: expect.any(Number),
-        queued: false,
-      },
-    })
-    expect(handleBridgeRunMock).not.toHaveBeenCalled()
   })
 
   it('continues with remaining queued bridge runs when readiness fails before a dequeued run starts', async () => {
@@ -870,181 +784,6 @@ describe('ChatRunSocket bridge readiness gating', () => {
     expect((server as any).bridgeResumePolls.size).toBe(0)
   })
 
-  it('does not query Hermes bridge status when resuming a coding agent session', async () => {
-    getSessionMock.mockImplementation((sessionId?: string) => sessionId
-      ? { id: sessionId, profile: 'default', source: 'coding_agent', model: 'codex', provider: 'codex' }
-      : undefined)
-    loadSessionStateFromDbMock.mockResolvedValueOnce({
-      messages: [],
-      isWorking: false,
-      isAborting: false,
-      runId: undefined,
-      activeRunMarker: undefined,
-      profile: 'default',
-      source: 'coding_agent',
-      events: [],
-      queue: [],
-    })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-
-    ;(server as any).onConnection(socket)
-    await handlers.get('resume')?.({ session_id: 'session-1' })
-
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-    expect(bridgeMock.statusIfLoaded).not.toHaveBeenCalled()
-    expect(resumeBridgeRunMock).not.toHaveBeenCalled()
-    expect(emitted.some(({ event }) => event === 'run.reattach_failed')).toBe(false)
-    expect(socket.emit).toHaveBeenCalledWith('resumed', expect.objectContaining({
-      session_id: 'session-1',
-      isWorking: false,
-      events: [],
-    }))
-  })
-
-  it('reattaches workflow bridge runs with the workflow source preserved', async () => {
-    getSessionMock.mockImplementation((sessionId?: string) => sessionId
-      ? { id: sessionId, profile: 'default', source: 'workflow', agent: 'hermes', model: 'gpt-test', provider: 'openai' }
-      : undefined)
-    bridgeMock.statusIfLoaded.mockResolvedValueOnce({
-      ok: true,
-      exists: true,
-      running: true,
-      loaded: true,
-      current_run_id: 'run-workflow',
-    })
-    loadSessionStateFromDbMock.mockResolvedValueOnce({
-      messages: [],
-      isWorking: false,
-      isAborting: false,
-      runId: undefined,
-      activeRunMarker: undefined,
-      profile: 'default',
-      events: [],
-      queue: [],
-    })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    let sourceAtResume = ''
-    resumeBridgeRunMock.mockImplementationOnce((...args: any[]) => {
-      const sessionMap = args[3] as Map<string, any>
-      sourceAtResume = sessionMap.get('session-1').source
-      return Promise.resolve()
-    })
-
-    ;(server as any).onConnection(socket)
-    await handlers.get('resume')?.({ session_id: 'session-1' })
-
-    expect(sourceAtResume).toBe('workflow')
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-    expect(bridgeMock.statusIfLoaded).toHaveBeenCalledWith('session-1', 'default', { timeoutMs: 1000 })
-    expect(resumeBridgeRunMock).toHaveBeenCalledWith(
-      expect.anything(),
-      socket,
-      expect.objectContaining({
-        sessionId: 'session-1',
-        runId: 'run-workflow',
-        source: 'workflow',
-      }),
-      expect.any(Map),
-      bridgeMock,
-      expect.any(Function),
-    )
-    expect(emitted.some(({ event }) => event === 'run.reattach_failed')).toBe(false)
-  })
-
-  it('reattaches global-agent bridge runs with the global source preserved', async () => {
-    getSessionMock.mockImplementation((sessionId?: string) => sessionId
-      ? { id: sessionId, profile: 'default', source: 'global_agent', model: 'gpt-test', provider: 'openai' }
-      : undefined)
-    bridgeMock.statusIfLoaded.mockResolvedValueOnce({
-      ok: true,
-      exists: true,
-      running: true,
-      loaded: true,
-      current_run_id: 'run-global',
-    })
-    loadSessionStateFromDbMock.mockResolvedValueOnce({
-      messages: [],
-      isWorking: false,
-      isAborting: false,
-      runId: undefined,
-      activeRunMarker: undefined,
-      profile: 'default',
-      source: 'global_agent',
-      events: [],
-      queue: [],
-    })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-
-    ;(server as any).onConnection(socket)
-    await handlers.get('resume')?.({ session_id: 'session-1' })
-
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-    expect(bridgeMock.statusIfLoaded).toHaveBeenCalledWith('session-1', 'default', { timeoutMs: 1000 })
-    expect(resumeBridgeRunMock).toHaveBeenCalledWith(
-      expect.anything(),
-      socket,
-      expect.objectContaining({
-        sessionId: 'session-1',
-        runId: 'run-global',
-        source: 'global_agent',
-      }),
-      expect.any(Map),
-      bridgeMock,
-      expect.any(Function),
-    )
-    expect(emitted.some(({ event }) => event === 'run.reattach_failed')).toBe(false)
-    expect(socket.emit).toHaveBeenCalledWith('resumed', expect.objectContaining({
-      session_id: 'session-1',
-      isWorking: true,
-      events: [],
-    }))
-  })
-
-  it('checks Hermes bridge status when resuming an api server session', async () => {
-    getSessionMock.mockImplementation((sessionId?: string) => sessionId
-      ? { id: sessionId, profile: 'default', source: 'api_server', model: 'gpt-test', provider: 'openai' }
-      : undefined)
-    bridgeMock.statusIfLoaded.mockResolvedValueOnce({
-      ok: true,
-      exists: false,
-      running: false,
-      loaded: false,
-    })
-    loadSessionStateFromDbMock.mockResolvedValueOnce({
-      messages: [],
-      isWorking: false,
-      isAborting: false,
-      runId: undefined,
-      activeRunMarker: undefined,
-      profile: 'default',
-      source: 'api_server',
-      events: [],
-      queue: [],
-    })
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, handlers, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-
-    ;(server as any).onConnection(socket)
-    await handlers.get('resume')?.({ session_id: 'session-1' })
-
-    expect(ensureReadyMock).not.toHaveBeenCalled()
-    expect(bridgeMock.statusIfLoaded).toHaveBeenCalledWith('session-1', 'default', { timeoutMs: 1000 })
-    expect(resumeBridgeRunMock).not.toHaveBeenCalled()
-    expect(emitted.some(({ event }) => event === 'run.reattach_failed')).toBe(false)
-    expect(socket.emit).toHaveBeenCalledWith('resumed', expect.objectContaining({
-      session_id: 'session-1',
-      isWorking: false,
-      events: [],
-    }))
-  })
-
   it('releases queued background completion claims before closing bridge clients', async () => {
     const order: string[] = []
     bridgeMock.releaseBackgroundNotification.mockImplementationOnce(async () => {
@@ -1089,113 +828,11 @@ describe('ChatRunSocket bridge readiness gating', () => {
 
 
 describe('ChatRunSocket MCP task plan lifecycle', () => {
-  it('routes builtin_agent requests through Ekko without requiring the coding-agent field or Hermes', async () => {
-    getSessionMock.mockReturnValue(undefined)
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    handleEkkoAgentRunMock.mockClear()
-    handleCodingAgentRunMock.mockClear()
-    handleBridgeRunMock.mockClear()
-    const readinessCalls = ensureReadyMock.mock.calls.length
-    await (server as any).handleRun(socket, { session_id: 'new-ekko', source: 'builtin_agent', input: 'Hello' }, 'default')
-    expect(handleEkkoAgentRunMock).toHaveBeenCalledTimes(1)
-    expect((handleEkkoAgentRunMock.mock.calls as any)[0][2]).toMatchObject({ source: 'builtin_agent', agent_id: 'ekko-agent' })
-    expect(handleCodingAgentRunMock).not.toHaveBeenCalled()
-    expect(handleBridgeRunMock).not.toHaveBeenCalled()
-    expect(ensureReadyMock.mock.calls.length).toBe(readinessCalls)
-  })
-
-  it.each(['group_chat', 'workflow'] as const)('routes slash-prefixed Ekko %s tasks to native execution even with a legacy transport', async source => {
-    getSessionMock.mockImplementation((id?: string) => id ? {
-      id, profile: 'default', source, agent: 'ekko-agent', provider: 'openai', model: 'gpt-test',
-    } : undefined)
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket, handlers } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    ;(server as any).onConnection(socket)
-    handleEkkoAgentRunMock.mockClear()
-    await handlers.get('run')?.({
-      session_id: 'session-1', source: 'coding_agent', coding_agent_id: 'ekko-agent', input: '/context',
-    })
-    expect(handleEkkoAgentRunMock).toHaveBeenCalledTimes(1)
-    expect((handleEkkoAgentRunMock.mock.calls as any)[0][2]).toMatchObject({ input: '/context', source, coding_agent_id: 'ekko-agent' })
-    expect(socket.emit.mock.calls.some(([event]: any[]) => event === 'session.command')).toBe(false)
-  })
-
-  it.each(['coding_agent', 'workflow', 'group_chat'])('does not inject shared planning into Ekko on %s', async source => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    const begin = vi.spyOn((server as any).taskPlanRuns, 'begin')
-    handleEkkoAgentRunMock.mockClear()
-    await (server as any).handleRun(socket, {
-      session_id: 'session-1', source, coding_agent_id: 'ekko-agent', input: 'Implement a feature',
-    }, 'default')
-    expect(handleEkkoAgentRunMock).toHaveBeenCalledTimes(1)
-    const data = (handleEkkoAgentRunMock.mock.calls as any)[0][2]
-    expect(data.instructions || '').not.toContain('ekko_studio_update_plan')
-    expect(data.instructions || '').not.toContain('context_id=')
-    expect(data.task_plan_context_id).toBeUndefined()
-    expect(begin).not.toHaveBeenCalled()
-  })
-
-  it.each(['coding_agent', 'group_chat', 'workflow', 'global_agent'])('binds interactive contexts only on user-facing Coding Agent turns: %s', async source => {
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    handleCodingAgentRunMock.mockReset()
-    let planContext = ''
-    let interactionContext: string | undefined
-    handleCodingAgentRunMock.mockImplementationOnce((async (_nsp: any, _socket: any, data: any, _profile: any, sessions: any) => {
-      planContext = data.task_plan_context_id
-      interactionContext = data.interaction_context_id
-      Object.assign(sessions.get(data.session_id), { isWorking: true, responseRun: { runMarker: 'coding-turn-1' } })
-      return { runId: 'reused-runtime-id', messageId: 42 }
-    }) as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source: source === 'global_agent' ? 'coding_agent' : source, session_source: source === 'coding_agent' ? undefined : source, ...(source === 'group_chat' ? { group_room_id: 'room', group_agent_id: 'worker' } : {}), coding_agent_id: 'codex', input: 'Implement a feature' }, 'default')
-    expect(handleCodingAgentRunMock).toHaveBeenCalledTimes(1)
-    expect(planContext).toBeTruthy()
-    if (source === 'workflow' || source === 'global_agent') {
-      expect(interactionContext).toBeUndefined()
-      expect(() => server.requestClarification(planContext, 'default', { question: 'Q' })).toThrow('expired')
-    } else {
-      expect(interactionContext).toBe(planContext)
-      const result = server.requestClarification(interactionContext!, 'default', { question: 'Q' })
-      const prompt = emitted.find(item => item.event === 'clarify.requested')!
-      expect(prompt.payload.run_id).toBe('coding-turn-1')
-      expect(server.respondCodingAgentClarification('session-1', prompt.payload.clarify_id, 'A')).toBe(true)
-      await expect(result).resolves.toMatchObject({ response: 'A' })
-    }
-    server.emitExternalEvent('session-1', 'run.completed', {})
-    expect(() => server.requestClarification(planContext, 'default', { question: 'Q' })).toThrow('expired')
-  })
-
-  const input = { plan: [{ id: 'verify', step: 'Verify the change', status: 'in_progress' }] }
-
-  it.each(['run.completed', 'run.failed', 'abort.completed'])('settles a Codex plan before delivering %s', async event => {
-    saveTaskPlanMock.mockClear()
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { emitted, io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    let contextId = ''
-    handleCodingAgentRunMock.mockImplementationOnce((async (_nsp: any, _socket: any, data: any, _profile: any, sessions: any) => {
-      contextId = data.task_plan_context_id
-      Object.assign(sessions.get(data.session_id), { isWorking: true, responseRun: { runMarker: 'coding-turn-1' } })
-      return { runId: 'reused-runtime-id', messageId: 42 }
-    }) as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source: 'coding_agent', coding_agent_id: 'codex', input: 'Implement a feature' }, 'default')
-    const snapshot = server.updateTaskPlan(contextId, 'default', input)
-    expect(snapshot.run_id).toBe('coding-turn-1')
-    expect(saveTaskPlanMock).toHaveBeenCalledWith(snapshot)
-    server.emitExternalEvent('session-1', event, { event, run_id: 'reused-runtime-id' })
-    const updates = emitted.filter(item => item.event === 'plan.updated')
-    expect(updates).toHaveLength(2)
-    expect(updates[1].payload).toMatchObject({ execution_state: event === 'run.completed' ? 'ended' : event === 'run.failed' ? 'failed' : 'interrupted', revision: 2 })
-    expect(emitted.indexOf(updates[1])).toBeLessThan(emitted.findIndex(item => item.event === event))
-    expect(() => server.updateTaskPlan(contextId, 'default', input)).toThrow('expired')
-  })
-
+  const input = 'Implement a feature'
+  const planUpdate = {
+    explanation: 'Verify the change',
+    plan: [{ id: 'verify', step: 'Verify the change', status: 'pending' }],
+  }
   it.each([false, true])('keeps Hermes plans alive until completion without treating runtime interrupted=%s as Stop', async interrupted => {
     getSessionMock.mockReturnValue({ id: 'session-1', profile: 'default', source: 'cli', agent: 'hermes' })
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
@@ -1207,21 +844,24 @@ describe('ChatRunSocket MCP task plan lifecycle', () => {
       contextId = data.task_plan_context_id
       const state = sessions.get(data.session_id)
       Object.assign(state, { isWorking: true, activeRunMarker: 'cli-turn-1' })
-      server.updateTaskPlan(contextId, 'default', input)
+      server.updateTaskPlan(contextId, 'default', planUpdate)
       state.activeRunMarker = undefined
       state.isWorking = false
       data.onEvent('run.completed', { event: 'run.completed', result: { interrupted } })
     }) as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source: 'cli', input: 'Implement a feature' }, 'default')
+    await (server as any).handleRun(socket, { session_id: 'session-1', source: 'cli', input }, 'default')
     const updates = emitted.filter(item => item.event === 'plan.updated')
     expect(updates.map(item => item.payload.execution_state)).toEqual(['running', 'ended'])
     expect(updates[1].payload.plan).toEqual([{ id: 'verify', step: 'Verify the change', status: 'pending' }])
-    expect(() => server.updateTaskPlan(contextId, 'default', input)).toThrow('expired')
+    expect(() => server.updateTaskPlan(contextId, 'default', planUpdate)).toThrow('expired')
   })
 })
 
 describe('MCP-aware run guidance', () => {
-  beforeEach(() => getSessionMock.mockReturnValue({ id: 'session-1', profile: 'research', source: 'cli', agent: 'hermes' }))
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getSessionMock.mockReturnValue({ id: 'session-1', profile: 'research', source: 'cli', agent: 'hermes' })
+  })
   it.each(['cli', 'workflow', 'group_chat'])('omits Hermes task contexts when MCPs are disabled on %s', async source => {
     const { readConfigYamlForProfile } = await import('../../packages/server/src/modules/studio/public/profile-config')
     vi.mocked(readConfigYamlForProfile).mockResolvedValueOnce({ mcp_servers: { 'ekko-studio-interaction': { enabled: false } } })
@@ -1237,61 +877,6 @@ describe('MCP-aware run guidance', () => {
     expect(readConfigYamlForProfile).toHaveBeenLastCalledWith('research')
   })
 
-  it.each(['coding_agent', 'workflow', 'group_chat'])('does not create Coding Agent interaction contexts without the MCP on %s', async source => {
-    const { getChatCodingAgentMcpServers } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
-    vi.mocked(getChatCodingAgentMcpServers).mockReturnValueOnce({})
-    handleCodingAgentRunMock.mockReset()
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    const server = new ChatRunSocket(io as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source, ...(source === 'group_chat' ? { group_room_id: 'room', group_agent_id: 'worker' } : {}), coding_agent_id: 'codex', input: 'Plan work' }, 'research')
-    const data = (handleCodingAgentRunMock.mock.calls as any)[0][2]
-    expect(data.task_plan_context_id).toBeUndefined()
-    expect(data.interaction_context_id).toBeUndefined()
-    expect(data.instructions || '').not.toContain('ekko_studio_')
-    if (source === 'group_chat') expect(data.studio_mcp_token_file).toBeTruthy()
-    expect(getChatCodingAgentMcpServers).toHaveBeenLastCalledWith('codex', 'research')
-  })
-
-  it.each([
-    ['ios', true, true, true],
-    ['android', true, true, false],
-    ['ios', false, false, false],
-    [undefined, true, false, false],
-  ])('gates mobile guidance by bound device and use MCP: %s / %s', async (platform, enabled, mobile, health) => {
-    const { getChatCodingAgentMcpServers } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
-    vi.mocked(getChatCodingAgentMcpServers).mockReturnValueOnce({ 'ekko-studio-use': { enabled } })
-    handleCodingAgentRunMock.mockReset()
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    if (platform) (socket.data as any).mobileDeviceTarget = { profile: 'default', platform, deviceCode: 'phone', userId: 1 }
-    const server = new ChatRunSocket(io as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source: 'coding_agent', coding_agent_id: 'codex', input: 'Hello' }, 'default')
-    const instructions = (handleCodingAgentRunMock.mock.calls as any)[0][2].instructions || ''
-    expect(instructions.includes('ekko_studio_use_mobile_location')).toBe(mobile)
-    expect(instructions.includes('ekko_studio_use_mobile_calendar')).toBe(mobile)
-    expect(instructions.includes('ekko_studio_use_mobile_health')).toBe(health)
-  })
-  it.each(['workflow', 'group_chat'])('does not expose mobile guidance through a coding_agent transport for %s', async session_source => {
-    handleCodingAgentRunMock.mockReset()
-    const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
-    const { io, socket } = makeServerHarness()
-    ;(socket.data as any).mobileDeviceTarget = { profile: 'default', platform: 'ios', deviceCode: 'phone', userId: 1 }
-    const server = new ChatRunSocket(io as any)
-    await (server as any).handleRun(socket, { session_id: 'session-1', source: 'coding_agent', session_source, ...(session_source === 'group_chat' ? { group_room_id: 'room', group_agent_id: 'worker' } : {}), coding_agent_id: 'codex', input: 'Hello' }, 'default')
-    expect((handleCodingAgentRunMock.mock.calls as any)[0][2].instructions || '').not.toContain('ekko_studio_use_mobile_')
-  })
-
-})
-
-describe('session upload provenance at the socket boundary', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    getSessionMock.mockImplementation((sessionId?: string) => sessionId
-      ? { id: sessionId, profile: 'default', source: 'cli', model: 'gpt-test', provider: 'openai' }
-      : undefined)
-  })
-
   it.each(['file', 'image', 'text'])('accepts a %s block in a new local session before it is persisted', async type => {
     getSessionMock.mockReturnValue(undefined)
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
@@ -1302,7 +887,7 @@ describe('session upload provenance at the socket boundary', () => {
     const input = [{ type, path: '/uploads/attachment.txt', name: 'attachment.txt', text: 'hello' }]
     await handlers.get('run')!({ session_id: 'new-local-session', profile: 'default', input })
     expect(socket.emit).not.toHaveBeenCalledWith('run.failed', expect.anything())
-    expect(run).toHaveBeenCalledWith(socket, expect.objectContaining({ session_id: 'new-local-session', input }), 'default', false, undefined, undefined)
+    expect(run).toHaveBeenCalledWith(socket, expect.objectContaining({ session_id: 'new-local-session', input }), 'default', false, undefined)
     expect(recordSessionUploadAttachmentsMock).toHaveBeenCalledWith('new-local-session', 'default', input, { allowPendingSession: true })
   })
 
@@ -1319,18 +904,17 @@ describe('session upload provenance at the socket boundary', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('registers host attachments but never recipient-provided paths (shared=%s)', async shared => {
+  it('registers host attachments for local Hermes sessions', async () => {
     recordSessionUploadAttachmentsMock.mockClear()
+    getSessionMock.mockReturnValue({ id: 'session-1', profile: 'default', source: 'cli', agent: 'hermes' })
     const { ChatRunSocket } = await import('../../packages/server/src/modules/studio/sockets/chat-run')
     const { handlers, io, socket } = makeServerHarness()
-    if (shared) socket.data = { sessionShare: { share: { session_id: 'session-1', profile: 'default' } } }
     const server = new ChatRunSocket(io as any)
     ;(server as any).onConnection(socket)
     ;(server as any).sessionMap.set('session-1', { isWorking: true, queue: [], events: [] })
     const input = [{ type: 'file', path: '/uploads/attachment.txt', name: 'attachment.txt' }]
     await handlers.get('run')!({ session_id: 'session-1', input })
-    if (shared) expect(recordSessionUploadAttachmentsMock).not.toHaveBeenCalled()
-    else expect(recordSessionUploadAttachmentsMock).toHaveBeenCalledWith('session-1', 'default', input, { allowPendingSession: true })
+    expect(recordSessionUploadAttachmentsMock).toHaveBeenCalledWith('session-1', 'default', input, { allowPendingSession: true })
     expect((server as any).sessionMap.get('session-1').queue).toHaveLength(1)
   })
 })

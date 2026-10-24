@@ -83,8 +83,31 @@ vi.mock('../../packages/server/src/modules/studio/services/chat-run/message-form
   isAssistantMessageSendable: vi.fn(() => true),
 }))
 
+// The Hermes bridge is the only chat runtime; projectBrowserHistory is a
+// mandatory dependency of the Studio chat-agent runtime facade. The mock keeps
+// the configured dependency so `truncateOtherTools` is still applied.
+const chatAgentRuntimeDeps = vi.hoisted(() => ({ current: null as any }))
+vi.mock('../../packages/server/src/modules/studio/public/chat-agent-runtime', () => ({
+  createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+  configureChatAgentRuntime: vi.fn((deps: any) => { chatAgentRuntimeDeps.current = deps }),
+  projectChatBrowserHistory: (messages: any[], options?: any) => (
+    chatAgentRuntimeDeps.current?.projectBrowserHistory?.(messages, options) ?? messages
+  ),
+}))
+
 describe('run chat compression trigger', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+    configureChatAgentRuntime({
+      projectBrowserHistory: (messages: any[], options?: { truncateOtherTools?: (content: string) => string }) => messages.map((message: any) => (
+        message.role === 'tool' && typeof message.content === 'string' && options?.truncateOtherTools
+          ? { ...message, content: options.truncateOtherTools(message.content) }
+          : message
+      )),
+      createPrimaryAgentBridge: vi.fn(() => ({ request: vi.fn(), destroy: vi.fn() })),
+      getPrimaryAgentBridgeManager: vi.fn(),
+      redactPrimaryAgentBridgeError: (error?: string) => error,
+    })
     getSessionDetailMock.mockReset()
     getSessionMock.mockReset()
     getSessionContextMessagesMock.mockReset()
