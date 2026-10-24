@@ -1,4 +1,4 @@
-import { registerAppEventState, publishAppState, stateEvent } from '../services/webhooks/app-event-state'
+import { publishAppState, stateEvent } from '../services/webhooks/app-event-state'
 import { publishDomainEvent } from '../services/webhooks/domain-events'
 import type { Server, Socket } from 'socket.io'
 import { authenticateUserToken, isAuthEnabled, type AuthenticatedUser } from '../public/auth'
@@ -63,16 +63,11 @@ export class WorkflowSocketServer {
   private readonly nsp: ReturnType<Server['of']>
   private readonly manager: WorkflowManager
   private readonly removeStatusListener: () => void
-  private readonly removeAppState: () => void
   private readonly notifiedRuns = new Set<string>()
 
   constructor(io: Server, manager: WorkflowManager = getWorkflowManager()) {
     this.manager = manager
     this.nsp = io.of(WORKFLOW_NAMESPACE)
-    this.removeAppState = registerAppEventState('workflow', (user, profile) => this.manager.listRuntimeStatuses()
-      .filter(status => ['queued', 'running', 'pending_approval'].includes(status.status)
-        && (this.manager.get(status.workflowId)?.profile || 'default') === profile && canAccessProfile(user, profile))
-      .map(status => this.appState(this.statusWithEvidence(status))))
     this.removeStatusListener = this.manager.onRuntimeStatus(status => this.emitRuntimeStatus(status))
   }
 
@@ -84,7 +79,6 @@ export class WorkflowSocketServer {
 
   close(): void {
     this.removeStatusListener()
-    this.removeAppState()
   }
 
   private async authMiddleware(socket: Socket, next: (err?: Error) => void): Promise<void> {

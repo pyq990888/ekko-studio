@@ -1,5 +1,5 @@
 import { getGroupMessageSelection, deleteGroupMessages, groupMessageDeletionError } from '../repositories/group-message-deletion'
-import { registerAppEventState, publishAppState, stateEvent, planStateEvent } from '../services/webhooks/app-event-state'
+import { publishAppState, stateEvent } from '../services/webhooks/app-event-state'
 import type { BusinessEvent } from '../services/webhooks/business-events'
 import { parseGroupTaskPlan } from '../services/group-chat/task-plan'
 import { parseGroupRunUsage } from '../services/group-chat/run-usage'
@@ -3435,37 +3435,6 @@ export class GroupChatServer {
             this.ownsIo = true
         }
         this.nsp = this.io.of('/group-chat')
-        const eventSocket = (user: AuthenticatedUser) => ({ id: '', data: { authUser: user } } as unknown as Socket)
-        const removeGroupState = registerAppEventState('group', (user) => {
-            const result: BusinessEvent[] = []
-            const socket = eventSocket(user)
-            for (const [roomId, activities] of this.roomAgentActivityState) {
-                if (!this.canSocketObserveRoom(socket, roomId)) continue
-                const profile = this.storage.getRoom(roomId)?.summaryProfile || 'default'
-                for (const activity of activities.values()) result.push(this.groupActivityEvent(activity))
-                const runs = new Set([...activities.values()].map(activity => activity.runId))
-                for (const message of this.storage.getRunTaskPlanMessages(roomId, [...runs])) {
-                    try {
-                        const event = planStateEvent(profile, { room_id: roomId, run_id: message.run_id || undefined }, JSON.parse(message.content))
-                        if (event) result.push(event)
-                    } catch { /* malformed persisted card */ }
-                }
-            }
-            for (const route of this.pendingApprovalRoutes.values()) {
-                if (!this.canSocketHandleAgentApproval(socket, route)) continue
-                result.push(stateEvent('group.approval.requested', this.storage.getRoom(route.roomId)?.summaryProfile || 'default',
-                    { room_id: route.roomId, run_id: route.runId, approval_id: route.approvalId },
-                    { owner_member_id: route.ownerMemberId, timeout_ms: route.timeoutMs, requested_at: route.requestedAt }))
-            }
-            for (const route of this.pendingClarifyRoutes.values()) {
-                if (!this.canSocketManageRoom(socket, route.roomId)) continue
-                result.push(stateEvent('group.clarification.requested', this.storage.getRoom(route.roomId)?.summaryProfile || 'default',
-                    { room_id: route.roomId, run_id: route.runId, clarification_id: route.clarifyId },
-                    { timeout_ms: route.timeoutMs, requested_at: route.requestedAt }))
-            }
-            return result
-        })
-        for (const server of servers) server.once('close', () => { removeGroupState() })
         this.nsp.use(this.authMiddleware.bind(this))
         this.nsp.on('connection', this.onConnection.bind(this))
 
