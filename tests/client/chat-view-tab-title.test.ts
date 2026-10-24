@@ -153,12 +153,12 @@ describe('ChatView tab title', () => {
     wrapper.unmount()
   })
 
-  it('renders Agent management inside the shared single-chat shell', () => {
-    mockRoute.name = 'hermes.agentManager'
+  it('renders the shared single-chat shell for the models route', () => {
+    mockRoute.name = 'hermes.models'
 
     const wrapper = mount(ChatView)
 
-    expect(wrapper.getComponent({ name: 'ChatPanel' }).props('contentMode')).toBe('agents')
+    expect(wrapper.getComponent({ name: 'ChatPanel' }).props('contentMode')).toBe('models')
     wrapper.unmount()
   })
 })

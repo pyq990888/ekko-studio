@@ -13,7 +13,6 @@ vi.mock('naive-ui', () => ({
 }))
 
 import MessageItem from '@/components/hermes/chat/MessageItem.vue'
-import GroupMessageItem from '@/components/hermes/group-chat/GroupMessageItem.vue'
 
 describe('initial message rendering', () => {
   beforeEach(() => {
@@ -32,36 +31,21 @@ describe('initial message rendering', () => {
     })
   })
 
-  describe.each(['single', 'group'] as const)('%s chat', (kind) => {
-    it.each(['user', 'assistant'] as const)('renders %s Markdown with the bubble on the first render', (role) => {
-      const message = {
-        id: `initial-${role}`,
-        role,
-        content: 'Already loaded **message text**',
-        timestamp: Date.now(),
-      }
-      const wrapper = kind === 'single'
-        ? mount(MessageItem, { props: { message } })
-        : mount(GroupMessageItem, {
-            props: {
-              message: {
-                ...message,
-                roomId: 'room-1',
-                senderId: role === 'user' ? 'user-1' : 'agent-1',
-                senderName: role === 'user' ? 'Reader' : 'Worker',
-              },
-              agents: [{ id: 'agent-row', roomId: 'room-1', agentId: 'agent-1', profile: 'worker', name: 'Worker', description: '', invited: 1 }],
-              currentUserId: 'user-1',
-            },
-          })
+  it.each(['user', 'assistant'] as const)('renders %s Markdown with the bubble on the first render', (role) => {
+    const message = {
+      id: `initial-${role}`,
+      role,
+      content: 'Already loaded **message text**',
+      timestamp: Date.now(),
+    }
+    const wrapper = mount(MessageItem, { props: { message } })
 
-      try {
-        // No promise/timer flush: loaded text must be present when its bubble mounts.
-        const bubble = wrapper.get(kind === 'single' ? '.message-bubble' : '.msg-content')
-        expect(bubble.get('.markdown-body strong').text()).toBe('message text')
-      } finally {
-        wrapper.unmount()
-      }
-    })
+    try {
+      // No promise/timer flush: loaded text must be present when its bubble mounts.
+      const bubble = wrapper.get('.message-bubble')
+      expect(bubble.get('.markdown-body strong').text()).toBe('message text')
+    } finally {
+      wrapper.unmount()
+    }
   })
 })

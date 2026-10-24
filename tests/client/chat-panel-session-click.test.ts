@@ -31,48 +31,17 @@ describe('ChatPanel session clicks', () => {
     expect(source).not.toContain(':key="chatStore.activeSessionId" class="chat-main-content"')
   })
 
-  it('allows scoped coding-agent model switching but disables it for global agents', () => {
-    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-
-    expect(source).toContain('contextSession.value?.source === "coding_agent"')
-    expect(source).toContain('isSessionModelScopedCodingAgent')
-    expect(source).toContain('canScopedCodingAgentUseProvider(sessionModelCodingAgentId.value, group.provider)')
-    expect(source).toContain('showSessionModelModeModal')
-    expect(source).toContain('pendingSessionModelSwitch')
-    expect(source).toContain('chatStore.switchSessionModel(model, provider, sessionModelSessionId.value, apiMode)')
-    expect(source).toContain('activeSessionUsesGlobalCodingAgentConfig')
-    expect(source).toContain(':model-disabled="activeSessionUsesGlobalCodingAgentConfig"')
-    expect(source).toContain('contextSession.value?.codingAgentMode !== "global"')
-    expect(source).toContain('requestedSession?.codingAgentMode === "global"')
-    expect(readFileSync('packages/client/src/stores/hermes/chat.ts', 'utf8')).toContain(
-      "session?.codingAgentMode === 'global' && isProviderAgentSession(session)",
-    )
-    expect(source).toContain('const sessionModelSwitching = ref(false)')
-    expect(source).toContain('sessionModelSwitching.value = true')
-    expect(source).toContain('sessionModelSwitching.value = false')
-    expect(readFileSync('packages/client/src/components/hermes/models/ModelCascader.vue', 'utf8')).toContain("t('chat.modelSwitching')")
-    expect(source).toContain(':loading="sessionModelSwitching"')
-    expect(source).not.toContain('header-model-button--readonly')
-    expect(source).not.toContain('if (isActiveSessionCodingAgent.value) return')
-  })
-
   it('uses the shared model dialog while preserving the session Profile and composer focus', () => {
     const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-    expect(source).toContain('newChatNativeModelGroups : sessionModelAllGroups')
+    expect(source).toContain(':groups="sessionModelAllGroups"')
     expect(source).toContain(':trigger-element="sessionModelTrigger"')
     expect(source).toContain('session?.profile || null')
     expect(source).toContain('@model-click="openSessionModelPicker(null, $event)"')
-  })
-
-  it('uses codingAgentId to filter scoped agent models and handles API mode for scoped agents', () => {
-    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-
-    expect(source).toContain('const sessionModelCodingAgentId = computed<ChatCodingAgentId | undefined>')
-    expect(source).toContain('sessionModelSession.value?.codingAgentId ||')
-    expect(source).toContain('sessionModelSession.value?.agent === "claude"')
-    expect(source).toContain('sessionModelSession.value?.agent === "ekko-agent"')
-    expect(source).toContain('if (isSessionModelScopedCodingAgent.value)')
-    expect(source).not.toContain('sessionModelSession.value?.agent === "claude-code"')
+    expect(source).toContain('const sessionModelSwitching = ref(false)')
+    expect(source).toContain('sessionModelSwitching.value = true')
+    expect(source).toContain('sessionModelSwitching.value = false')
+    expect(source).toContain(':loading="sessionModelSwitching"')
+    expect(readFileSync('packages/client/src/components/hermes/models/ModelCascader.vue', 'utf8')).toContain("t('chat.modelSwitching')")
   })
 
   it('uses the active sidebar model as the new chat default for the active profile', () => {
@@ -84,32 +53,6 @@ describe('ChatPanel session clicks', () => {
     expect(source).toContain('selectedGroup?.models.includes(selectedModel)')
   })
 
-  it('offers Ekko when creating chats in production builds', () => {
-    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-
-    expect(AGENT_OPTIONS).toContainEqual({ label: 'Ekko', value: 'ekko-agent' })
-    expect(source).toContain('const newChatAgentOptions = computed(() => AGENT_OPTIONS.filter(')
-    expect(source).not.toContain('showEkkoAgentEntry')
-    expect(source).not.toContain('import.meta.env.DEV')
-  })
-
-  it('persists Pi as the Pi agent instead of falling back to Hermes', () => {
-    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-
-    expect(source).toContain('newChatAgent.value === "pi"')
-    expect(source).toContain('? "pi"')
-    expect(source).toContain('codingAgentId: newChatAgent.value === "hermes" ? undefined : newChatAgent.value')
-  })
-
-  it('persists Ekko API mode and offers manual selection only when the Provider mode is unknown', () => {
-    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
-
-    expect(source).toContain('apiMode: isNewChatCodingAgent.value && !isGlobalCodingAgent ? newChatApiMode.value : undefined')
-    expect(source).toContain('v-if="isNewChatCodingAgent && effectiveNewChatAgentMode === \'scoped\' && !newChatConfiguredApiMode"')
-    expect(source).toContain('if (isSessionModelScopedCodingAgent.value)')
-    expect(source).toContain('await applySessionModelSwitch(pending.model, pending.provider, sessionModelApiMode.value)')
-  })
-
   it('creates a conversation from the inline composer submission', () => {
     const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
 
@@ -119,12 +62,11 @@ describe('ChatPanel session clicks', () => {
     expect(source).not.toContain('{{ t("chat.newChat") }}\n            </NButton>')
   })
 
-  it('offers MoA only for Hermes session creation and switching', () => {
+  it('offers MoA presets for Hermes session model switching', () => {
     const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
 
-    expect(source).toContain('if (group.provider === "moa") return newChatAgent.value === "hermes"')
-    expect(source).toContain('group.provider === "moa"\n          ? isSessionModelHermes.value')
     expect(source).toContain("selection.provider === 'moa'")
     expect(source).toContain('await applySessionModelSwitch(preset, "moa")')
+    expect(source).toContain('sessionMoaGroup.value?.models.length')
   })
 })

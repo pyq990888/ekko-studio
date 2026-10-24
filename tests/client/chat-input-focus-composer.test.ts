@@ -148,11 +148,10 @@ describe('ChatInput focusComposer', () => {
     wrapper.unmount()
   })
 
-  it('keeps voice and tool settings without exposing the per-session push setting', () => {
+  it('keeps tool settings without exposing the per-session push setting', () => {
     const wrapper = mountForSession('session-push-setting', { pushEnabled: true })
     const options = wrapper.findAll('.dropdown-option').map(button => button.text())
 
-    expect(options).toContain('realtimeVoice.mode')
     expect(options).toContain('chat.showToolCalls')
     expect(options).not.toContain('chat.pushEnabled')
     expect(setSessionPushEnabledMock).not.toHaveBeenCalled()
