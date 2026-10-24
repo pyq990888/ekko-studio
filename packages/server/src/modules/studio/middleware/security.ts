@@ -141,12 +141,6 @@ function isHttpsRequest(ctx: Context): boolean {
   return forwardedProto === 'https'
 }
 
-function isGroupChatAgentLinkDocument(ctx: Context): boolean {
-  return ctx.method === 'GET'
-    && ctx.path === '/'
-    && ctx.query.groupChatAgentLink === '1'
-}
-
 export function securityHeaders(): Middleware {
   return async (ctx, next) => {
     ctx.set('X-Content-Type-Options', 'nosniff')
@@ -154,7 +148,7 @@ export function securityHeaders(): Middleware {
     ctx.set('Referrer-Policy', 'no-referrer')
     ctx.set(
       'Cross-Origin-Opener-Policy',
-      isGroupChatAgentLinkDocument(ctx) ? 'unsafe-none' : 'same-origin-allow-popups',
+      'same-origin-allow-popups',
     )
     ctx.set('Content-Security-Policy', [
       "default-src 'self'",

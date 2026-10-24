@@ -36,7 +36,7 @@ export function parseSessionTasksUpdate(input: Record<string, unknown>): Session
 export function updateSessionTasks(sessionId: string, profile: string, input: Record<string, unknown>, historyRevision?: number) {
   const update = parseSessionTasksUpdate(input)
   const state = getSessionTasksState(sessionId)
-  if (!state || state.profile !== profile || ['group_chat', 'global_agent'].includes(state.source)) {
+  if (!state || state.profile !== profile || state.source === 'global_agent') {
     throw new SessionTasksError('The current session goal ledger is unavailable', 409)
   }
   if (state.revision !== update.revision || (historyRevision !== undefined && state.history_revision !== historyRevision)) {

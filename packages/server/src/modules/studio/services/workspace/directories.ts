@@ -20,7 +20,6 @@ function pathKey(path: string): string {
 
 function generatedWorkspaceRoots(): string[] {
   return [
-    join(config.appHome, 'group-chat'),
     join(getWebUiHome(), 'coding-agent', 'workspace'),
     join(config.appHome, '.ekko', 'workspace'),
     ...listProfileNamesFromDisk().map(profile => join(getProfileDir(profile), 'workspace')),

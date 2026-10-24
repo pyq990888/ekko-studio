@@ -71,13 +71,10 @@ export interface QueuedRun {
   provider?: string
   model_groups?: Array<{ provider: string; models: string[] }>
   instructions?: string
-  groupSystemPrompt?: string
-  groupRoomId?: string
-  groupAgentId?: string
   profile: string
   workspace?: string | null
   source?: ChatRunSource
-  sessionSource?: 'global_agent' | 'group_chat'
+  sessionSource?: 'global_agent'
   codingAgentId?: ChatCodingAgentId
   agentId?: ChatCodingAgentId
   mode?: RunMode
@@ -171,7 +168,6 @@ export interface SessionState {
   responseRun?: ResponseRunState
   source?: ChatRunSource
   webhookAgent?: 'bridge' | 'ekko' | 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode'
-  webhookRoomId?: string
   bridgePendingAssistantContent?: string
   bridgeAssistantMessageId?: string
   bridgePendingReasoningContent?: string

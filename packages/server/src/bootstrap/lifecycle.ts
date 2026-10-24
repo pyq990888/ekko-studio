@@ -65,7 +65,6 @@ async function runShutdownStep(name: string, step: () => void | Promise<void>): 
 
 export function createShutdownHandler(
   server: any,
-  groupChatServer?: any,
   chatRunServer?: any,
   agentBridgeManager?: any,
   additionalSteps: AdditionalShutdownStep[] = [],
@@ -160,20 +159,9 @@ export function createShutdownHandler(
           logger.info('Leaving agent bridge running across Web UI shutdown')
         }
 
-        // Disconnect feature agents before closing Socket.IO, then close the
-        // bootstrap-owned hub exactly once. A standalone GroupChatServer still
-        // closes the IO it created itself.
-        if (groupChatServer) {
-          if (typeof groupChatServer.shutdown === 'function') {
-            await runShutdownStep('Group chat agents', () => groupChatServer.shutdown())
-          } else {
-            await runShutdownStep('Group chat agents', () => groupChatServer.agentClients.disconnectAll())
-          }
-        }
+        // Close the bootstrap-owned Socket.IO hub after feature agents disconnect.
         if (realtimeHub) {
           await runShutdownStep('Socket.IO', () => realtimeHub.close())
-        } else if (groupChatServer && typeof groupChatServer.shutdown !== 'function') {
-          await runShutdownStep('Socket.IO', () => groupChatServer.getIO().close())
         }
 
         const servers = Array.isArray(server) ? server : [server].filter(Boolean)
@@ -203,12 +191,11 @@ export function createShutdownHandler(
 
 export function bindShutdown(
   server: any,
-  groupChatServer?: any,
   chatRunServer?: any,
   agentBridgeManager?: any,
   additionalSteps: AdditionalShutdownStep[] = [],
 ): ShutdownHandler {
-  const shutdown = createShutdownHandler(server, groupChatServer, chatRunServer, agentBridgeManager, additionalSteps)
+  const shutdown = createShutdownHandler(server, chatRunServer, agentBridgeManager, additionalSteps)
 
   process.once('SIGUSR2', shutdown)
   process.on('SIGINT', shutdown)

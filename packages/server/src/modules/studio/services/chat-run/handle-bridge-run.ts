@@ -61,11 +61,10 @@ const BRIDGE_TITLE_EVENT_POLL_INTERVAL_MS = 500
 const BRIDGE_TITLE_EVENT_POLL_TIMEOUT_MS = 45_000
 const BRIDGE_GOAL_EVALUATE_TIMEOUT_MS = 120_000
 
-type BridgeRunSource = Extract<ChatRunSource, 'cli' | 'global_agent' | 'group_chat'>
+type BridgeRunSource = Extract<ChatRunSource, 'cli' | 'global_agent'>
 
 function normalizeBridgeRunSource(source?: string | null, sessionSource?: string | null): BridgeRunSource {
   if (sessionSource === 'global_agent' || source === 'global_agent') return 'global_agent'
-  if (sessionSource === 'group_chat' || source === 'group_chat') return 'group_chat'
   return 'cli'
 }
 
@@ -463,7 +462,7 @@ async function ensureBridgeFixedContext(args: {
 export async function handleBridgeRun(
   nsp: ReturnType<Server['of']>,
   socket: Socket,
-  data: { task_plan_context_id?: string; input: string | ContentBlock[]; display_input?: string | ContentBlock[] | null; display_role?: 'user' | 'command'; storage_message?: string; session_id?: string; model?: string; provider?: string; model_groups?: RunModelGroup[]; instructions?: string; workspace?: string | null; category_id?: number | null; source?: string; session_source?: 'global_agent' | 'workflow' | 'group_chat'; queue_id?: string; peerExcludeSocketId?: string; reasoning_effort?: string; push_enabled?: boolean; background_delegation_enabled?: boolean; one_shot_model?: boolean; background_delegation_id?: string; background_claim_id?: string; autonomous?: boolean; onEvent?: (event: string, payload: any) => void },
+  data: { task_plan_context_id?: string; input: string | ContentBlock[]; display_input?: string | ContentBlock[] | null; display_role?: 'user' | 'command'; storage_message?: string; session_id?: string; model?: string; provider?: string; model_groups?: RunModelGroup[]; instructions?: string; workspace?: string | null; category_id?: number | null; source?: string; session_source?: 'global_agent'; queue_id?: string; peerExcludeSocketId?: string; reasoning_effort?: string; push_enabled?: boolean; background_delegation_enabled?: boolean; one_shot_model?: boolean; background_delegation_id?: string; background_claim_id?: string; autonomous?: boolean; onEvent?: (event: string, payload: any) => void },
   profile: string,
   sessionMap: Map<string, SessionState>,
   bridge: AgentBridgeClient,
@@ -475,7 +474,7 @@ export async function handleBridgeRun(
   const { input, session_id, instructions } = data
   const runSource = normalizeBridgeRunSource(data.source, data.session_source)
   // Ordinary single-chat Hermes agents enable background delegation by default.
-  // Workflow and group-chat callers pass false explicitly at their own creation
+  // Background callers pass false explicitly at their own creation
   // boundaries and remain disabled independently of this default.
   const backgroundDelegationEnabled = data.background_delegation_enabled !== false
   if (!session_id) {
@@ -768,7 +767,7 @@ export async function handleBridgeRun(
     const originalBridgeInput = isContentBlockArray(input)
       ? await convertContentBlocksForAgent(input)
       : input
-    const bridgeInput = withTaskPlanTurnContext(originalBridgeInput, data.task_plan_context_id, !data.background_delegation_id && !['group_chat', 'workflow', 'global_agent'].includes(data.session_source || data.source || ''))
+    const bridgeInput = withTaskPlanTurnContext(originalBridgeInput, data.task_plan_context_id, !data.background_delegation_id && !['global_agent'].includes(data.session_source || data.source || ''))
     const runMetadata: BridgeRunMetadata = {
       autonomous: data.autonomous === true,
       delegationId: data.background_delegation_id,

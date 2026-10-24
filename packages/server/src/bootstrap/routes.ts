@@ -2,7 +2,6 @@ import type { Context, Next } from 'koa'
 import './hermes-ops-adapter'
 import './agent-log-adapter'
 import './chat-agent-runtime-adapter'
-import './group-chat-agent-runtime-adapter'
 import './session-agent-runtime-adapter'
 import { apiDocsRoutes } from '../modules/studio'
 import { healthRoutes } from './health'
@@ -40,7 +39,6 @@ import { downloadRoutes } from '../modules/studio/routes/download'
 import { jobRoutes } from '../modules/hermes/routes/jobs'
 import { cronHistoryRoutes } from '../modules/hermes/routes/cron-history'
 import { kanbanRoutes } from '../modules/hermes/routes/kanban'
-import { groupChatPublicRoutes, groupChatRoutes } from '../modules/studio/routes/group-chat'
 import { chatRunRoutes } from '../modules/studio/routes/chat-run'
 import { chatWebhookPublicRoutes, chatWebhookRoutes } from '../modules/studio/routes/chat-webhooks'
 import { performanceMonitorRoutes } from '../modules/studio/routes/performance-monitor'
@@ -69,7 +67,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(claudeCodeProxyRoutes.routes())
   app.use(codexProxyRoutes.routes())
   app.use(apiDocsRoutes.routes())
-  app.use(groupChatPublicRoutes.routes())
   app.use(chatWebhookPublicRoutes.routes())
 
   // --- Auth middleware: all routes below require authentication ---
@@ -105,7 +102,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(weixinRoutes.routes())
   app.use(chatRunRoutes.routes())
   app.use(chatWebhookRoutes.routes())
-  app.use(groupChatRoutes.routes())
   app.use(fileRoutes.routes())
   app.use(downloadRoutes.routes())
   app.use(jobRoutes.routes())

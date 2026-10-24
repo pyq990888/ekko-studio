@@ -10,8 +10,6 @@ type LegacyAppApiPrefix = readonly [legacy: string, canonical: string]
 export const LEGACY_APP_API_PREFIXES: readonly LegacyAppApiPrefix[] = Object.freeze([
   ['/api/hermes/session-categories', '/api/studio/session-categories'],
   ['/api/hermes/search/sessions', '/api/studio/search/sessions'],
-  ['/api/hermes/group-chat-link', '/api/studio/group-chat-link'],
-  ['/api/hermes/group-chat', '/api/studio/group-chat'],
   ['/api/hermes/performance', '/api/studio/performance'],
   ['/api/hermes/sessions', '/api/studio/sessions'],
   ['/api/hermes/workspace', '/api/studio/workspace'],

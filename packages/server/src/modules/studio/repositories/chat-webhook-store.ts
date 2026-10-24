@@ -17,16 +17,8 @@ export const CHAT_WEBHOOK_EVENT_TYPES = [
   'chat.run.failed',
   'chat.task.created',
   'chat.task.completed',
-  'group.message.created',
-  'group.run.failed',
-  'group.approval.requested',
-  'group.approval.resolved',
-  'group.clarification.requested',
-  'group.clarification.resolved',
   'chat.run.updated',
-  'group.run.updated',
   'chat.plan.updated',
-  'group.plan.updated',
 ] as const
 
 export type ChatWebhookEventType = (typeof CHAT_WEBHOOK_EVENT_TYPES)[number]

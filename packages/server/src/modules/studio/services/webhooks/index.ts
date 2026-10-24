@@ -23,7 +23,6 @@ export interface ObserveChatRunWebhookEventInput {
   source: string
   agent: ChatRunWebhookAgent
   payload?: Record<string, unknown>
-  roomId?: string
 }
 
 function stringValue(value: unknown): string {
@@ -42,7 +41,7 @@ function positiveNumber(value: unknown): number | undefined {
 }
 
 function normalizeSource(value: string): ChatRunWebhookSource {
-  if (value === 'global_agent' || value === 'group_chat' || value === 'coding_agent' || value === 'cli' || value === 'api_server') {
+  if (value === 'global_agent' || value === 'coding_agent' || value === 'cli' || value === 'api_server') {
     return value
   }
   return 'chat'
@@ -93,7 +92,7 @@ export function observeChatRunWebhookEvent(input: ObserveChatRunWebhookEventInpu
   const sessionId = stringValue(input.sessionId)
   const plan = input.event === 'plan.updated' ? taskPlanWebhookSnapshot(payload, sessionId) : null
   // Group cards publish only after their message snapshot has been persisted.
-  if (input.event === 'plan.updated' && (!plan || input.source === 'group_chat')) return false
+  if (input.event === 'plan.updated' && !plan) return false
   const mapping: { type: ChatWebhookEventType; status: ChatWebhookLifecycleStatus } | undefined = plan
     ? { type: 'chat.plan.updated', status: 'updated' }
     : input.event === 'tool.completed' && Boolean(payload.error)
@@ -134,7 +133,6 @@ export function observeChatRunWebhookEvent(input: ObserveChatRunWebhookEventInpu
       tool_call_id: toolCallId || undefined,
       approval_id: approvalId || undefined,
       clarification_id: clarificationId || undefined,
-      room_id: input.roomId || undefined,
       ...(plan ? { plan_id: plan.plan_id } : {}),
     },
     summary: {

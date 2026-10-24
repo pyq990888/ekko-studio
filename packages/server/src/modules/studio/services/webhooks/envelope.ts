@@ -6,7 +6,7 @@ import { sessionTaskWebhookContent, type WebhookSessionTask } from './session-ta
 export const CHAT_WEBHOOK_SCHEMA_VERSION = 1
 export const MAX_WEBHOOK_CONTENT_BYTES = 64 * 1024
 
-export type ChatRunWebhookSource = 'chat' | 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'group_chat'
+export type ChatRunWebhookSource = 'chat' | 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent'
 export type ChatRunWebhookAgent = 'bridge' | 'ekko' | 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode'
 export type ChatWebhookLifecycleStatus = 'created' | 'queued' | 'started' | 'requested' | 'resolved' | 'completed' | 'failed' | 'updated'
 export type ChatWebhookMessageRole = 'user' | 'command' | 'assistant'
@@ -26,7 +26,6 @@ export interface ChatRunWebhookEvent {
     tool_call_id?: string
     approval_id?: string
     clarification_id?: string
-    room_id?: string
     plan_id?: string
     task_id?: string
   }
@@ -89,8 +88,8 @@ export function buildChatWebhookEnvelope(
     ...(metadata.session_task ? { session_task: sessionTaskWebhookContent(metadata.session_task, includeAssistantContent) } : {}),
   }
   const shouldIncludeContent = (
-    (includeAssistantContent && (event.type === 'chat.run.completed' || (event.type === 'group.message.created' && contentRole === 'assistant')))
-    || (includeUserContent && (event.type === 'chat.message.created' || (event.type === 'group.message.created' && contentRole === 'user')))
+    (includeAssistantContent && event.type === 'chat.run.completed')
+    || (includeUserContent && event.type === 'chat.message.created')
   )
   if (shouldIncludeContent && content) {
     const value = truncateChatWebhookContent(content)

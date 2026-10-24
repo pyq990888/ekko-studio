@@ -17,13 +17,7 @@ import { registerRoutes } from './routes'
 import { dshPluginUi } from '../modules/coding-agents/services'
 import './chat-agent-runtime-adapter'
 import './skill-files-adapter'
-import { setGroupChatServer } from '../modules/studio/routes/group-chat'
 import { setChatRunServer } from '../modules/studio/public/chat-run'
-import { GroupChatServer } from '../modules/studio/public/group-chat'
-import {
-  getGroupAgentOutboundRelayManager,
-  GroupAgentRelayServer,
-} from '../modules/studio/services/group-chat/agent-relay'
 import { ChatRunSocket } from '../modules/studio/sockets/chat-run'
 import { startChatWebhookDispatcher } from '../modules/studio/services/webhooks'
 import { getAgentBridgeManager, startAgentBridgeManager } from '../modules/hermes/services/bridge'
@@ -73,10 +67,8 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined'
 
 let server: any = null
 const servers: any[] = []
-let groupChatServer: GroupChatServer | null = null
 let realtimeHub: RealtimeHub | null = null
 let chatRunServer: any = null
-let groupAgentRelayServer: GroupAgentRelayServer | null = null
 let agentBridgeManager: any = null
 let desktopShutdownHandler: ShutdownHandler | null = null
 let shutdownRequested = false
@@ -88,7 +80,6 @@ function getShutdownHandler(): ShutdownHandler {
   if (!desktopShutdownHandler) {
     desktopShutdownHandler = createShutdownHandler(
       servers,
-      groupChatServer,
       chatRunServer,
       agentBridgeManager,
       additionalShutdownSteps,
@@ -535,29 +526,10 @@ export async function bootstrap() {
   const hub = createRealtimeHub(servers)
   realtimeHub = hub
 
-  // Group chat Socket.IO (must be after server is created)
-  const activeGroupChatServer = new GroupChatServer(servers, hub.io)
-  groupChatServer = activeGroupChatServer
-  setGroupChatServer(activeGroupChatServer)
-  groupAgentRelayServer = new GroupAgentRelayServer(hub.io, activeGroupChatServer)
-  additionalShutdownSteps.push({
-    name: 'Group agent relay',
-    close: () => groupAgentRelayServer?.shutdown(),
-  })
-
   // Chat run Socket.IO — shares the same Server instance, just adds /chat-run namespace
   chatRunServer = new ChatRunSocket(hub.io)
   setChatRunServer(chatRunServer)
-  activeGroupChatServer.setChatRunService(chatRunServer)
   chatRunServer.init()
-  const groupAgentOutboundRelayManager = getGroupAgentOutboundRelayManager(
-    () => activeGroupChatServer.getChatRunService(),
-  )
-  additionalShutdownSteps.push({
-    name: 'Group agent outbound relay',
-    close: () => groupAgentOutboundRelayManager.shutdown(),
-  })
-  void groupAgentOutboundRelayManager.restore()
 
   // Session deleter — periodically drain pending session deletes
   const { SessionDeleter } = await import('../modules/hermes/services/history/session-deleter')
@@ -597,9 +569,6 @@ export async function bootstrap() {
   }
   if (shutdownRequested) return
 
-  // Restore group chat agents after server is ready.
-  activeGroupChatServer.restoreWhenReady()
-
   servers.forEach((httpServer) => {
     httpServer.on('error', (err: any) => {
       console.error('[bootstrap] server error:', err.code || err.message)
@@ -609,7 +578,6 @@ export async function bootstrap() {
 
   desktopShutdownHandler = createShutdownHandler(
     servers,
-    activeGroupChatServer,
     chatRunServer,
     agentBridgeManager,
     additionalShutdownSteps,

@@ -60,15 +60,6 @@ export function defaultHermesWorkspace(profile: string): string {
   return join(getProfileDir(profile || 'default'), 'workspace')
 }
 
-export function defaultGroupChatWorkspace(profile: string, roomId: string): string {
-  return join(
-    config.appHome,
-    'group-chat',
-    safeWorkspaceSegment(profile, 'default'),
-    safeWorkspaceSegment(roomId, 'room'),
-  )
-}
-
 export function defaultCodingAgentWorkspace(profile: string, provider: string): string {
   return join(
     getWebUiHome(),
