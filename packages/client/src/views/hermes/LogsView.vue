@@ -20,12 +20,8 @@ const lineCount = ref(100)
 const levelFilter = ref<string>('')
 const searchQuery = ref('')
 
-function displayLogName(name: string): string {
-  return name.replace(/^ekko-agent(?=\/|$)/, 'Ekko')
-}
-
 const logOptions = computed(() =>
-  logFiles.value.map(f => ({ label: `${displayLogName(f.name)} (${f.size})`, value: f.name })),
+  logFiles.value.map(f => ({ label: `${f.name} (${f.size})`, value: f.name })),
 )
 
 const levelOptions = computed(() => [
@@ -81,7 +77,6 @@ async function loadLogs() {
     const data = await fetchLogs(selectedLog.value, {
       lines: lineCount.value,
       level: levelFilter.value || undefined,
-      text: selectedLog.value === 'ekko-agent' ? searchQuery.value || undefined : undefined,
     })
     if (currentLoad === loadId) entries.value = data.filter((e): e is LogEntry => e !== null)
   } catch (e: any) {
@@ -95,10 +90,10 @@ onMounted(async () => {
   try {
     const files = await fetchLogFiles()
     if (disposed) return
-    logFiles.value = files
+    logFiles.value = files.filter(file => file.name !== 'ekko-agent' && !file.name.startsWith('ekko-agent/'))
     if (!logFiles.value.some(file => file.name === selectedLog.value)) {
       selectedLog.value = logFiles.value.find(file => file.name === 'webui')?.name
-        || logFiles.value.find(file => file.name === 'ekko-agent')?.name
+        || logFiles.value.find(file => file.name === 'agent')?.name
         || logFiles.value[0]?.name
         || ''
     }
@@ -199,7 +194,7 @@ onUnmounted(() => {
         >
           <span class="log-time">{{ formatTime(entry.timestamp) }}</span>
           <span class="log-level" :class="levelClass(entry.level)">{{ entry.level }}</span>
-          <span class="log-logger">{{ displayLogName(entry.logger) }}</span>
+          <span class="log-logger">{{ entry.logger }}</span>
           <template v-if="parseAccessLog(entry.message)">
             <span class="access-method">{{ parseAccessLog(entry.message)!.method }}</span>
             <span class="access-path">{{ parseAccessLog(entry.message)!.path }}</span>

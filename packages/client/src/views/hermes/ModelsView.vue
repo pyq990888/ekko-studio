@@ -7,15 +7,12 @@ import { NButton, NSelect, NTabPane, NTabs, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import AuxiliaryModelsPanel from '@/components/hermes/models/AuxiliaryModelsPanel.vue'
 import CombinationModelsPanel from '@/components/hermes/models/CombinationModelsPanel.vue'
-import JevSettingsPanel from '@/components/hermes/models/JevSettingsPanel.vue'
-import ModelApiPanel from '@/components/hermes/models/ModelApiPanel.vue'
 import ProvidersPanel from '@/components/hermes/models/ProvidersPanel.vue'
 import ProviderFormModal from '@/components/hermes/models/ProviderFormModal.vue'
 import ProviderImportModal from '@/components/hermes/models/ProviderImportModal.vue'
 import { pendingProviderImport, type ProviderImport } from '@/utils/provider-import'
 import ProviderVisibilityModal from '@/components/hermes/models/ProviderVisibilityModal.vue'
 import ModelCatalogNotice from '@/components/hermes/models/ModelCatalogNotice.vue'
-import VoiceSettings from '@/components/hermes/settings/VoiceSettings.vue'
 import { useModelsStore } from '@/stores/hermes/models'
 import { useAppStore } from '@/stores/hermes/app'
 import { useProfilesStore } from '@/stores/hermes/profiles'
@@ -89,9 +86,9 @@ watch(() => route.query.modelProfile, profile => {
   showModal.value = false
   void loadProvidersForProfile()
 })
-type ModelsTab = 'general' | 'auxiliary' | 'combination' | 'stt' | 'tts' | 'jev' | 'api'
+type ModelsTab = 'general' | 'auxiliary' | 'combination'
 
-const MODELS_TABS = new Set<ModelsTab>(['general', 'auxiliary', 'combination', 'stt', 'tts', 'jev', 'api'])
+const MODELS_TABS = new Set<ModelsTab>(['general', 'auxiliary', 'combination'])
 const activeTab = ref<ModelsTab>('general')
 
 function normalizeTab(value: unknown): ModelsTab {
@@ -210,7 +207,6 @@ async function handleRefreshModelCache() {
       </div>
       <div class="header-actions">
         <NSelect
-          v-if="activeTab !== 'api'"
           class="models-profile-select"
           data-testid="models-profile-select"
           :value="selectedProfile"
@@ -258,29 +254,17 @@ async function handleRefreshModelCache() {
       <div v-if="profileLoading" class="models-profile-loading" role="status" aria-live="polite">
 
       </div>
-      <NTabs v-else-if="selectedProfile || activeTab === 'api'" :key="activeTab === 'api' ? 'api' : selectedProfile" v-model:value="activeTab" type="line" animated @update:value="handleTabUpdate">
+      <NTabs v-else-if="selectedProfile" :key="selectedProfile" v-model:value="activeTab" type="line" animated @update:value="handleTabUpdate">
         <NTabPane name="general" :tab="t('models.generalTitle')">
           <div>
             <ProvidersPanel />
           </div>
-        </NTabPane>
-        <NTabPane name="api" :tab="t('modelApi.title')">
-          <ModelApiPanel />
         </NTabPane>
         <NTabPane name="auxiliary" :tab="t('models.auxiliaryTitle')">
           <AuxiliaryModelsPanel />
         </NTabPane>
         <NTabPane name="combination" :tab="t('models.combinationTitle')">
           <CombinationModelsPanel />
-        </NTabPane>
-        <NTabPane name="jev" tab="JEV">
-          <JevSettingsPanel :profile="selectedProfile" />
-        </NTabPane>
-        <NTabPane name="stt" :tab="t('settings.voice.sttProvidersTitle')">
-          <VoiceSettings :key="`stt-${selectedProfile}`" kind="stt" />
-        </NTabPane>
-        <NTabPane name="tts" :tab="t('settings.voice.ttsProvidersTitle')">
-          <VoiceSettings :key="`tts-${selectedProfile}`" kind="tts" />
         </NTabPane>
       </NTabs>
     </div>
@@ -295,7 +279,7 @@ async function handleRefreshModelCache() {
       :draft="importDraft" :profile="selectedProfile" :profiles="profiles"
       @close="importDraft = null" @saved="handleImportSaved" />
     <ModelCatalogNotice
-      v-if="activeTab !== 'api' && largeCatalogProviders.length > 0 && !profileLoading && !modelsStore.loading && !modelsStore.refreshingModelCache && !showModal && !visibilityProvider && !catalogBusy"
+      v-if="largeCatalogProviders.length > 0 && !profileLoading && !modelsStore.loading && !modelsStore.refreshingModelCache && !showModal && !visibilityProvider && !catalogBusy"
       v-model:show="showLargeCatalogNotice"
       :providers="largeCatalogProviders"
       @manage="manageLargeCatalog"
