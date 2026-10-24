@@ -1,13 +1,14 @@
 # Hermes-only Scope
 
-Status: approved 2026-10-24. This document is the keep/cut manifest for the
-Hermes-only fork. Every slimming change should reference this file.
+Status: approved 2026-10-24, implementation complete on branch
+`refactor/hermes-only`. This document is the keep/cut manifest for the
+Hermes-only WebUI.
 
 ## Goal
 
-Run Ekko Studio as a server-hosted Hermes Agent WebUI. Remove every runtime,
-product surface, package, and delivery pipeline that is not required to operate
-Hermes chat, Hermes history, Hermes configuration, or the Web UI shell.
+Hermes WebUI is a server-hosted Web UI for Hermes Agent. Every runtime, product
+surface, package, and delivery pipeline that is not required to operate Hermes
+chat, Hermes history, Hermes configuration, or the Web UI shell has been removed.
 
 ## Keep
 
@@ -40,24 +41,40 @@ Hermes chat, Hermes history, Hermes configuration, or the Web UI shell.
   MCU/ESP32 devices and firmware, JEV, session shares, Model API,
   announcements, media, desktop browser, API relay (APIKEY.FAN),
   desktop/Electron packaging.
-- Voice/STT/TTS: removed by default. Revisit only on explicit request; it also
-  removes Hermes profile voice settings and heavy native dependencies.
-- Webhooks: keep through Phase 1-4, remove in Phase 5.
-- Performance monitor: keep (it observes the Hermes bridge) unless removed
-  later on request.
-- Version preview and desktop browser: remove (server-only target).
+- Voice/STT/TTS: removed. It also removed Hermes profile voice settings and the
+  heavy native dependencies (`sherpa-onnx-*`, `node-edge-tts`, `@audio/*`,
+  `ffmpeg`).
+- Webhooks: generic `chat.*` webhooks kept; `group.*`/`workflow.*` event types
+  removed.
+- Performance monitor: kept (it observes the Hermes bridge).
+- Version preview and desktop browser: removed (server-only target).
 
 ## Deferred / compatibility
 
-- Do not drop existing SQLite tables or rows in the first pass. Keep old
-  `ekko-agent` / `coding_agent` sessions readable; do not allow new runs for
-  removed runtimes.
-- Keep a read-only `PersistedAgentRuntime` union for historical sessions while
-  `ActiveAgentRuntime` is `hermes` only.
-- Do not delete `node-pty`, `sharp`, `socket.io`, `js-tiktoken`, `adm-zip`, or
-  the Vue Flow packages still used by Kanban/Journey.
-- Package/CLI rename to `hermes-web-ui` happens after the functional slimming;
-  keep the `ekko-studio` aliases for one transition release.
+- Do not drop existing SQLite tables or rows. Old `ekko-agent` / `coding_agent`
+  sessions stay readable; new runs for removed runtimes are rejected with a
+  read-only error (`This session belongs to a removed runtime and is read-only`).
+- `PersistedAgentRuntime` keeps the historical union (Ekko + 14 coding ids) so
+  old rows keep resolving, while `ActiveAgentRuntime` is `hermes` only.
+- `bin/ekko-studio-mcp.mjs` keeps its filename and its `ekko_studio_*` /
+  `ekko-studio-*` tool identifiers because those are wire-protocol names already
+  written into Hermes profiles. Only display text was rebranded.
+- Do not delete `node-pty` (Hermes terminal), `sharp` (image previews),
+  `socket.io` (chat transport), `js-tiktoken` (compression), `adm-zip` (skill
+  archives), or the Vue Flow packages used by Kanban/Journey.
+
+## Resulting shape
+
+- Packages: `client`, `server`, `shared`, `skills`. `ekko-agent`, `desktop`,
+  `esp32-c3`, `esp32-s3` deleted.
+- Server: `modules/studio` + `modules/hermes` only. `bootstrap/realtime.ts`
+  owns the single Socket.IO `Server`.
+- Client: 25 Hermes/core routes; 23 Hermes views; locale payload reduced ~40%.
+- Root dependencies: 27 -> 13; optional `sherpa-onnx-*` and the `overrides`
+  block removed; lockfile 1,038 -> 942 packages.
+- CI: 15 -> 6 workflows.
+- OpenAPI: 233 endpoints, zero removed-feature paths.
+- Server bundle: 12.7 MB -> 7.7 MB.
 
 ## Execution rules
 
