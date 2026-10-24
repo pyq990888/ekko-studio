@@ -117,7 +117,7 @@ async function authorizeScreenRecording() {
   } catch {
     if (!disposed) {
       permissionNeeded.value = true
-      permissionError.value = t('computerUsePermissions.openFailed')
+      permissionError.value = t('chat.screenshot.openFailed')
     }
   }
   finally { permissionOpening.value = false }
@@ -183,7 +183,7 @@ onUnmounted(() => {
   </span>
   <span v-if="available && permissionNeeded" class="system-wait" role="status" data-testid="screenshot-permission-guide">
     {{ t('chat.screenshot.permissionDenied') }}
-    <NButton size="tiny" secondary :loading="permissionOpening" :disabled="permissionOpening" data-testid="screenshot-authorize" @click="authorizeScreenRecording">{{ t('computerUsePermissions.authorize') }}</NButton>
+    <NButton size="tiny" secondary :loading="permissionOpening" :disabled="permissionOpening" data-testid="screenshot-authorize" @click="authorizeScreenRecording">{{ t('chat.screenshot.authorize') }}</NButton>
     <span v-if="permissionError" role="alert">{{ permissionError }}</span>
   </span>
   <NModal

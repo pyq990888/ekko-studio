@@ -185,6 +185,7 @@ export default {
 
   // 通用
   common: {
+    profile: '配置档案',
     close: '关闭',
     loading: '加载中...',
     cancel: '取消',
@@ -372,6 +373,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: '管理运行时',
+    installNow: '安装 Hermes Agent',
+    installed: '已安装',
+    notInstalled: '未安装',
+    unknownVersion: '未知版本',
     title: '版本管理',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: '当前 Hermes Agent 版本',
@@ -402,7 +408,6 @@ export default {
     runtimeMigrationFailed: '存储目录迁移失败，已继续使用原目录',
     runtimeActivationFailed: '所选 Runtime 无法启动，Ekko Studio 已改用其他已安装版本',
     active: '已启用',
-    installed: '已安装',
     download: '下载',
     downloadGithub: 'GitHub 下载',
     downloadCf: 'Cloudflare 下载',
@@ -549,6 +554,8 @@ export default {
     messageDeleteFailed: "删除消息失败",
     messagesDeleted: "已删除 {count} 条",
     screenshot: {
+      authorize: '授权',
+      openFailed: '无法打开屏幕录制设置。请打开系统设置并手动允许屏幕录制。',
       shortcut: {
         settings: "设置截图快捷键",
         description: "在任何应用中按快捷键，截图会添加到最近操作的聊天。",

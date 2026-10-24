@@ -197,6 +197,7 @@ export default {
 
   // 공통
   common: {
+    profile: '프로필',
     close: '닫기',
     loading: '로딩 중...',
     cancel: '취소',
@@ -384,6 +385,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: '런타임 관리',
+    installNow: 'Hermes Agent 설치',
+    installed: '설치됨',
+    notInstalled: '설치되지 않음',
+    unknownVersion: '알 수 없는 버전',
     title: '버전 관리',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: '현재 Hermes Agent 버전',
@@ -414,7 +420,6 @@ export default {
     runtimeMigrationFailed: '저장소 마이그레이션에 실패하여 이전 저장소를 계속 사용합니다',
     runtimeActivationFailed: '선택한 Runtime을 시작할 수 없어 Ekko Studio가 설치된 다른 버전을 사용했습니다',
     active: '활성',
-    installed: '설치됨',
     download: '다운로드',
     downloadGithub: 'GitHub 다운로드',
     downloadCf: 'Cloudflare 다운로드',
@@ -561,6 +566,8 @@ export default {
     messageDeleteFailed: "메시지를 삭제하지 못했습니다",
     messagesDeleted: "{count}개 항목 삭제됨",
     screenshot: {
+      authorize: '승인',
+      openFailed: '화면 기록 설정을 열 수 없습니다. 시스템 설정을 열고 화면 기록을 직접 허용하세요.',
       shortcut: {
         settings: "스크린샷 단축키 설정",
         description: "어떤 앱에서든 사용할 수 있습니다. 스크린샷은 마지막으로 사용한 채팅에 추가됩니다.",

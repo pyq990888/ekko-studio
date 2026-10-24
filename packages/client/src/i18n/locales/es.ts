@@ -197,6 +197,7 @@ export default {
 
   // Common
   common: {
+    profile: 'Perfil',
     close: 'Cerrar',
     loading: 'Cargando...',
     cancel: 'Cancelar',
@@ -384,6 +385,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: 'Gestionar Runtime',
+    installNow: 'Instalar Hermes Agent',
+    installed: 'Instalado',
+    notInstalled: 'No instalado',
+    unknownVersion: 'Versión desconocida',
     title: 'Gestión de versiones',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: 'Versión actual de Hermes Agent',
@@ -414,7 +420,6 @@ export default {
     runtimeMigrationFailed: 'La migración del almacenamiento falló; se sigue usando el almacenamiento anterior',
     runtimeActivationFailed: 'No se pudo iniciar el Runtime seleccionado; Ekko Studio está usando otra versión instalada',
     active: 'Activa',
-    installed: 'Instalada',
     download: 'Descargar',
     downloadGithub: 'Descargar desde GitHub',
     downloadCf: 'Descargar desde Cloudflare',
@@ -561,6 +566,8 @@ export default {
     messageDeleteFailed: "No se pudieron eliminar los mensajes",
     messagesDeleted: "{count} elementos eliminados",
     screenshot: {
+      authorize: 'Autorizar',
+      openFailed: 'No se pudo abrir los ajustes de grabación de pantalla. Abre Ajustes del Sistema y permite la grabación de pantalla manualmente.',
       shortcut: {
         settings: "Configurar atajo de captura",
         description: "Úsalo desde cualquier aplicación. La captura se añade al último chat utilizado.",

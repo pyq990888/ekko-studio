@@ -44,7 +44,7 @@ describe('i18n lazy loading', () => {
     expect(document.documentElement.dir).toBe('ltr')
     expect(localStorage.getItem('hermes_locale')).toBe('tr')
     expect(i18n.global.t('common.cancel')).toBe('İptal')
-    expect(i18n.global.t('jev.browserAutomation')).toBe('Yerleşik tarayıcı otomasyonu')
+    expect(i18n.global.t('common.profile')).toBe('Profil')
     const { default: en } = await import('@/i18n/locales/en')
     expect(i18n.global.t('usage.pricing.selectionHelp')).toBe(en.usage.pricing.selectionHelp)
   })

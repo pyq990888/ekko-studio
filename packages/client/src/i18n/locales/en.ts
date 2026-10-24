@@ -186,6 +186,7 @@ export default {
   // Common
   common: {
     close: 'Close',
+    profile: 'Profile',
     loading: 'Loading...',
     cancel: 'Cancel',
     delete: 'Delete',
@@ -374,6 +375,11 @@ export default {
   runtimeVersions: {
     title: 'Version Management',
     runtimeTitle: 'Hermes Runtime',
+    manageRuntime: 'Manage Runtime',
+    installNow: 'Install Hermes Agent',
+    installed: 'Installed',
+    notInstalled: 'Not installed',
+    unknownVersion: 'Unknown version',
     currentHermesAgentVersion: 'Current Hermes Agent version',
     activeRuntimeDirectory: 'Active Runtime directory',
     activePythonPath: 'Current Python path',
@@ -402,7 +408,6 @@ export default {
     runtimeMigrationFailed: 'Storage migration failed; the previous storage remains active',
     runtimeActivationFailed: 'The selected Runtime could not start, so Ekko Studio used another installed version',
     active: 'Active',
-    installed: 'Installed',
     download: 'Download',
     downloadGithub: 'GitHub Download',
     downloadCf: 'Cloudflare Download',
@@ -549,6 +554,8 @@ export default {
     messageDeleteFailed: "Unable to delete messages",
     messagesDeleted: "Deleted {count} items",
     screenshot: {
+      authorize: "Authorize",
+      openFailed: "Could not open screen recording settings. Open System Settings and allow screen recording manually.",
       shortcut: {
         settings: "Set screenshot shortcut",
         description: "Use the shortcut from any app. The screenshot is added to the chat you used most recently.",

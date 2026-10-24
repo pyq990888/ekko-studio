@@ -197,6 +197,7 @@ export default {
 
   // 共通
   common: {
+    profile: 'プロファイル',
     close: '閉じる',
     loading: '読み込み中...',
     cancel: 'キャンセル',
@@ -384,6 +385,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: 'ランタイムを管理',
+    installNow: 'Hermes Agent をインストール',
+    installed: 'インストール済み',
+    notInstalled: '未インストール',
+    unknownVersion: '不明なバージョン',
     title: 'バージョン管理',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: '現在の Hermes Agent バージョン',
@@ -414,7 +420,6 @@ export default {
     runtimeMigrationFailed: '保存先の移行に失敗したため、以前の保存先を引き続き使用します',
     runtimeActivationFailed: '選択した Runtime を起動できなかったため、Ekko Studio は別のインストール済みバージョンを使用しています',
     active: '有効',
-    installed: 'インストール済み',
     download: 'ダウンロード',
     downloadGithub: 'GitHub からダウンロード',
     downloadCf: 'Cloudflare からダウンロード',
@@ -561,6 +566,8 @@ export default {
     messageDeleteFailed: "メッセージを削除できませんでした",
     messagesDeleted: "{count} 件を削除しました",
     screenshot: {
+      authorize: '許可',
+      openFailed: '画面収録の設定を開けませんでした。システム設定を開き、画面収録を手動で許可してください。',
       shortcut: {
         settings: "スクリーンショットのショートカットを設定",
         description: "どのアプリからでも使えます。画像は最後に操作したチャットに追加されます。",

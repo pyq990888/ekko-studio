@@ -77,7 +77,7 @@ async function save() {
     @update:show="value => { if (!value && !saving) emit('close') }">
     <NAlert type="warning" :show-icon="false">{{ t('models.importNotice') }}</NAlert>
     <NForm label-placement="top" autocomplete="off">
-      <NFormItem :label="t('workflow.profile')" required>
+      <NFormItem :label="t('common.profile')" required>
         <NSelect v-model:value="targetProfile" :disabled="saving"
           :options="profiles.map(p => ({ label: p.name, value: p.name }))" />
       </NFormItem>

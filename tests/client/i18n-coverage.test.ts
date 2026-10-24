@@ -149,33 +149,6 @@ function interpolationNames(value: string): string[] {
   return [...value.matchAll(/\{([^}]+)\}/g)].map(match => match[1]).sort()
 }
 
-it('localizes all JEV messages and error codes without relying on English fallback', () => {
-  const expected = flattenLeafPaths(en.jev)
-  for (const locale of supportedLocales) {
-    const actual = flattenLeafPaths(rawMessages[locale].jev)
-    expect([...actual.keys()].sort(), locale).toEqual([...expected.keys()].sort())
-    const i18n = createI18n({ legacy: false, locale, messages: { [locale]: rawMessages[locale] } })
-    for (const [key, english] of expected) {
-      const value = actual.get(key)!
-      expect(value.trim(), `${locale}: jev.${key}`).not.toBe('')
-      expect(interpolationNames(value), `${locale}: jev.${key}`).toEqual(interpolationNames(english))
-      expect(() => i18n.global.t(`jev.${key}`, { model: 'jev-test', duration: '123' })).not.toThrow()
-      if (locale !== 'en') expect(value, `${locale}: jev.${key} copies English`).not.toBe(english)
-    }
-  }
-})
-
-it('does not expose locale-code placeholders in generated JEV copy', () => {
-  const guardedKeys = ['groupMessageRoutingEnabled', 'groupRoutingDisabled', 'groupRoutingReady', 'groupMessageRoutingMinConfidence', 'groupMessageRoutingMinConfidenceHint', 'groupMessageRoutingTimeout', 'groupMessageRoutingTimeoutHint', 'workflowQualityEnabled', 'workflowQualityDisabled', 'workflowQualityReady', 'workflowQualityMinConfidence', 'workflowQualityMinConfidenceHint', 'workflowQualityTimeout', 'workflowQualityTimeoutHint']
-  for (const locale of supportedLocales) {
-    const actual = flattenLeafPaths(rawMessages[locale].jev)
-    for (const key of guardedKeys) {
-      const value = actual.get(key)!
-      expect(value, `${locale}: jev.${key} starts with a locale-code placeholder`).not.toMatch(/^(?:zh(?:-TW)?|en|ja|ko|fr|es|de|pt|ru|ar|tr)\s+/i)
-    }
-  }
-})
-
 const SKILLS_USAGE_LOCALIZED_KEYS = [
   'sidebar.skillsUsage',
   'skillsUsage.title',
@@ -475,31 +448,6 @@ describe('i18n locale coverage', () => {
     expect(missing).toEqual([])
   })
 
-  it('fully defines the raw group-chat namespace in every locale', () => {
-    const englishGroupChat = flattenLeafPaths(en.groupChat)
-    const issues = Object.entries(rawMessages).flatMap(([locale, localeMessages]) => {
-      const localizedGroupChat = flattenLeafPaths(localeMessages.groupChat)
-      const missing = [...englishGroupChat.keys()]
-        .filter(key => !localizedGroupChat.has(key))
-        .map(key => `${locale}: missing groupChat.${key}`)
-      const extra = [...localizedGroupChat.keys()]
-        .filter(key => !englishGroupChat.has(key))
-        .map(key => `${locale}: extra groupChat.${key}`)
-      const interpolationMismatches = [...englishGroupChat.entries()].flatMap(([key, englishValue]) => {
-        const localizedValue = localizedGroupChat.get(key)
-        if (typeof localizedValue === 'undefined') return []
-        const expected = interpolationNames(englishValue)
-        const actual = interpolationNames(localizedValue)
-        return expected.join('|') === actual.join('|')
-          ? []
-          : [`${locale}: groupChat.${key} placeholders ${actual.join(',')} != ${expected.join(',')}`]
-      })
-      return [...missing, ...extra, ...interpolationMismatches]
-    })
-
-    expect(issues).toEqual([])
-  })
-
   it('compiles every changelog message in every locale', () => {
     for (const [locale, localeMessages] of Object.entries(rawMessages)) {
       const i18n = createI18n({
@@ -597,41 +545,6 @@ describe('i18n locale coverage', () => {
     )
 
     expect(missing).toEqual([])
-  })
-
-  it('localizes Agent linking and pairing copy in every raw non-English locale', () => {
-    const untranslated = Object.entries(rawMessages).flatMap(([locale, localeMessages]) => {
-      if (locale === 'en') return []
-
-      return GROUP_CHAT_AGENT_LINK_LOCALIZED_KEYS.flatMap((key) => {
-        const localeValue = getPath(localeMessages, key)
-        if (typeof localeValue === 'undefined') return [`${locale}: ${key} missing`]
-        return localeValue === getPath(en, key) ? [`${locale}: ${key}`] : []
-      })
-    })
-
-    expect(untranslated).toEqual([])
-  })
-
-  it('localizes every Workflow Schedule string in every raw non-English locale instead of copying English', () => {
-    const untranslated = Object.entries(rawMessages).flatMap(([locale, localeMessages]) => {
-      if (locale === 'en') return []
-
-      return WORKFLOW_SCHEDULE_LOCALIZED_KEYS.flatMap((key) => {
-        const localeValue = getPath(localeMessages, key)
-        if (typeof localeValue !== 'string' || !localeValue.trim()) return [`${locale}: ${key} missing`]
-        return localeValue === getPath(en, key) ? [`${locale}: ${key} copies English`] : []
-      })
-    })
-
-    expect(untranslated).toEqual([])
-  })
-
-  it('uses Chinese Schedule translations for the customer-facing entry points', () => {
-    expect(getPath(zh, 'workflow.schedule.manage')).toBe('管理定时计划')
-    expect(getPath(zh, 'workflow.schedule.timezone')).toBe('时区')
-    expect(getPath(zhTW, 'workflow.schedule.manage')).toBe('管理排程')
-    expect(getPath(zhTW, 'workflow.schedule.timezone')).toBe('時區')
   })
 
   it('localizes platform settings copy in every raw non-English locale instead of falling back to English', () => {

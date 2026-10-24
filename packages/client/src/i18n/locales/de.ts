@@ -197,6 +197,7 @@ export default {
 
   // Common
   common: {
+    profile: 'Profil',
     close: 'Schließen',
     loading: 'Laden...',
     cancel: 'Abbrechen',
@@ -384,6 +385,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: 'Runtime verwalten',
+    installNow: 'Hermes Agent installieren',
+    installed: 'Installiert',
+    notInstalled: 'Nicht installiert',
+    unknownVersion: 'Unbekannte Version',
     title: 'Versionsverwaltung',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: 'Aktuelle Hermes Agent-Version',
@@ -414,7 +420,6 @@ export default {
     runtimeMigrationFailed: 'Speichermigration fehlgeschlagen; der vorherige Speicher bleibt aktiv',
     runtimeActivationFailed: 'Die ausgewählte Runtime konnte nicht gestartet werden; Ekko Studio verwendet eine andere installierte Version',
     active: 'Aktiv',
-    installed: 'Installiert',
     download: 'Herunterladen',
     downloadGithub: 'Von GitHub herunterladen',
     downloadCf: 'Von Cloudflare herunterladen',
@@ -561,6 +566,8 @@ export default {
     messageDeleteFailed: "Nachrichten konnten nicht gelöscht werden",
     messagesDeleted: "{count} Einträge gelöscht",
     screenshot: {
+      authorize: 'Autorisieren',
+      openFailed: 'Die Bildschirmaufnahme-Einstellungen konnten nicht geöffnet werden. Erlaube die Bildschirmaufnahme bitte manuell in den Systemeinstellungen.',
       shortcut: {
         settings: "Screenshot-Tastenkürzel festlegen",
         description: "Aus jeder App nutzbar. Der Screenshot wird dem zuletzt verwendeten Chat hinzugefügt.",

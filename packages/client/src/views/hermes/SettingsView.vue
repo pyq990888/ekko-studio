@@ -36,7 +36,7 @@ const agentStatusSnapshot = ref<AgentStatusSnapshot | null>(null);
 
 const hermesRuntime = computed(() => agentStatusSnapshot.value?.agents.find(agent => agent.id === "hermes"));
 const hermesInstalled = computed(() => Boolean(hermesRuntime.value?.installed));
-const hermesVersion = computed(() => hermesRuntime.value?.version?.trim() || t("agentManager.unknownVersion"));
+const hermesVersion = computed(() => hermesRuntime.value?.version?.trim() || t("runtimeVersions.unknownVersion"));
 
 const validTabs = computed(() => new Set([
   "account",
@@ -129,12 +129,12 @@ onMounted(() => {
                   <p>{{ t('runtimeVersions.currentHermesAgentVersion') }}: {{ hermesVersion }}</p>
                 </div>
                 <NTag :type="hermesInstalled ? 'success' : 'warning'" size="small" :bordered="false">
-                  {{ hermesInstalled ? t('codingAgents.installed') : t('codingAgents.notInstalled') }}
+                  {{ hermesInstalled ? t('runtimeVersions.installed') : t('runtimeVersions.notInstalled') }}
                 </NTag>
               </div>
               <p class="runtime-description">{{ t('runtimeVersions.cliUpdateDescription') }}</p>
               <NButton type="primary" @click="runtimeManagerVisible = true">
-                {{ hermesInstalled ? t('agentManager.manageRuntime') : t('codingAgents.installNow') }}
+                {{ hermesInstalled ? t('runtimeVersions.manageRuntime') : t('runtimeVersions.installNow') }}
               </NButton>
             </section>
           </NTabPane>

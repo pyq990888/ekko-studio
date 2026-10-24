@@ -185,6 +185,7 @@ export default {
 
   // Common
   common: {
+    profile: 'الملف الشخصي',
     close: 'إغلاق',
     loading: 'جارٍ التحميل...',
     cancel: 'إلغاء',
@@ -372,6 +373,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: 'إدارة وقت التشغيل',
+    installNow: 'تثبيت Hermes Agent',
+    installed: 'مثبّت',
+    notInstalled: 'غير مثبّت',
+    unknownVersion: 'إصدار غير معروف',
     title: 'إدارة الإصدارات',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: 'إصدار Hermes Agent الحالي',
@@ -402,7 +408,6 @@ export default {
     runtimeMigrationFailed: 'فشل نقل التخزين، وما زال التخزين السابق نشطًا',
     runtimeActivationFailed: 'تعذر تشغيل Runtime المحدد، لذلك استخدم Ekko Studio إصدارًا آخر مثبتًا',
     active: 'نشط',
-    installed: 'مثبّت',
     download: 'تنزيل',
     downloadGithub: 'تنزيل من GitHub',
     downloadCf: 'تنزيل من Cloudflare',
@@ -549,6 +554,8 @@ export default {
     messageDeleteFailed: "تعذر حذف الرسائل",
     messagesDeleted: "تم حذف {count} من العناصر",
     screenshot: {
+      authorize: 'تفويض',
+      openFailed: 'تعذّر فتح إعدادات تسجيل الشاشة. افتح إعدادات النظام واسمح بتسجيل الشاشة يدويًا.',
       shortcut: {
         settings: "تعيين اختصار لقطة الشاشة",
         description: "استخدمه من أي تطبيق. تُضاف اللقطة إلى آخر محادثة استخدمتها.",

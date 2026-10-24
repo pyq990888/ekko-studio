@@ -183,6 +183,7 @@ export default {
 
 
   common: {
+    profile: 'Профиль',
     close: 'Закрыть',
     loading: 'Загрузка...',
     cancel: 'Отмена',
@@ -295,6 +296,11 @@ export default {
 
 
   runtimeVersions: {
+    manageRuntime: 'Управление Runtime',
+    installNow: 'Установить Hermes Agent',
+    installed: 'Установлено',
+    notInstalled: 'Не установлено',
+    unknownVersion: 'Неизвестная версия',
     title: 'Управление версиями',
     runtimeTitle: 'Hermes Runtime',
     currentHermesAgentVersion: 'Текущая версия Hermes Agent',
@@ -325,7 +331,6 @@ export default {
     runtimeMigrationFailed: 'Перенос хранилища не выполнен; продолжает использоваться прежнее хранилище',
     runtimeActivationFailed: 'Выбранный Runtime не удалось запустить; Ekko Studio использует другую установленную версию',
     active: 'Активна',
-    installed: 'Установлена',
     download: 'Скачать',
     downloadGithub: 'Скачать с GitHub',
     downloadCf: 'Скачать с Cloudflare',
@@ -473,6 +478,8 @@ export default {
     messageDeleteFailed: "Не удалось удалить сообщения",
     messagesDeleted: "Удалено элементов: {count}",
     screenshot: {
+      authorize: 'Разрешить',
+      openFailed: 'Не удалось открыть настройки записи экрана. Откройте Системные настройки и разрешите запись экрана вручную.',
       shortcut: {
         settings: "Настроить сочетание для снимка экрана",
         description: "Работает в любом приложении. Снимок добавляется в последний использованный чат.",

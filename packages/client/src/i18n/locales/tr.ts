@@ -305,6 +305,7 @@ export default {
   },
 
   common: {
+    profile: 'Profil',
     close: 'Kapat', loading: 'Yükleniyor...', cancel: 'İptal', delete: 'Sil', edit: 'Düzenle', save: 'Kaydet',
     retry: 'Tekrar dene', reset: 'Sıfırla', saved: 'Kaydedildi', update: 'Güncelle', create: 'Oluştur',
     saveFailed: 'Kaydetme başarısız oldu', deleteFailed: 'Silme başarısız oldu', ok: 'Tamam', copied: 'Kopyalandı',
