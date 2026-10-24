@@ -33,11 +33,6 @@ import { ensureProfileGatewaysRunning } from '../modules/hermes/services/gateway
 import { runRegisteredStartupTasks } from './startup-tasks'
 import { refreshConfiguredProviderModelCatalogsInBackground } from '../modules/hermes/services/providers/model-catalog-cache'
 import { refreshModelCatalog } from '../modules/studio/public/model-catalog'
-import {
-  selectLanIPv4Address,
-  startLanDiscoveryResponder,
-  stopLanDiscoveryResponder,
-} from './lan-discovery'
 import { startGlobalAgentServer } from '../modules/studio/public/global-agent'
 import { startLocalAppRelayServer } from '../modules/studio/services/app-relay/server'
 import {
@@ -643,17 +638,9 @@ export async function bootstrap() {
     })
   })
 
-  const selectedLanAddress = selectLanIPv4Address('')
-  const localIp = selectedLanAddress === '127.0.0.1' ? 'localhost' : selectedLanAddress
-  console.log(`Server: http://localhost:${config.port} (LAN: http://${localIp}:${config.port})`)
+  console.log(`Server: http://localhost:${config.port}`)
   console.log(`Log: ${config.appHome}/logs/server.log`)
-  logger.info('Server: http://localhost:%d (LAN: http://%s:%d)', config.port, localIp, config.port)
-  // Small Box firmware discovers its Studio backend through this shared responder.
-  startLanDiscoveryResponder({ httpPort: config.port })
-  additionalShutdownSteps.push({
-    name: 'LAN discovery responder',
-    close: stopLanDiscoveryResponder,
-  })
+  logger.info('Server: http://localhost:%d', config.port)
   refreshConfiguredProviderModelCatalogsInBackground('bootstrap')
 
   if (isDesktopRuntime()) {

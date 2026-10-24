@@ -21,7 +21,6 @@ import {
 import { uploadRoutes } from '../modules/studio/routes/upload'
 import { appUploadRoutes } from '../modules/studio/routes/app-upload'
 import { authPublicRoutes, authProtectedRoutes } from '../modules/studio/routes/auth'
-import { mcuDevicePublicRoutes, mcuDeviceRoutes } from '../modules/studio/routes/mcu-devices'
 
 import { sessionRoutes } from '../modules/studio/routes/sessions'
 import { profileRoutes } from '../modules/hermes/routes/profiles'
@@ -46,7 +45,6 @@ import { jobRoutes } from '../modules/hermes/routes/jobs'
 import { cronHistoryRoutes } from '../modules/hermes/routes/cron-history'
 import { kanbanRoutes } from '../modules/hermes/routes/kanban'
 import { workflowRoutes } from '../modules/studio/routes/workflows'
-import { mcuFirmwareRoutes } from '../modules/studio/routes/mcu-firmware'
 import { groupChatPublicRoutes, groupChatRoutes } from '../modules/studio/routes/group-chat'
 import { chatRunRoutes } from '../modules/studio/routes/chat-run'
 import { chatWebhookPublicRoutes, chatWebhookRoutes } from '../modules/studio/routes/chat-webhooks'
@@ -74,7 +72,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   // --- Public routes (no auth required) ---
   app.use(healthRoutes.routes())
   app.use(authPublicRoutes.routes())
-  app.use(mcuDevicePublicRoutes.routes())
   app.use(claudeCodeProxyRoutes.routes())
   app.use(codexProxyRoutes.routes())
   app.use(apiDocsRoutes.routes())
@@ -86,7 +83,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
 
   // --- Protected routes (auth required) ---
   app.use(authProtectedRoutes.routes())
-  app.use(mcuDeviceRoutes.routes())
   app.use(appConnectionRoutes.routes())
   app.use(uploadRoutes.routes())
   app.use(appUploadRoutes.routes())
@@ -125,7 +121,6 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(cronHistoryRoutes.routes())
   app.use(kanbanRoutes.routes())
   app.use(workflowRoutes.routes())
-  app.use(mcuFirmwareRoutes.routes())
   app.use(performanceMonitorRoutes.routes())
   app.use(journeyRoutes.routes())
   app.use(mcpRoutes.routes())                   // MCP management
