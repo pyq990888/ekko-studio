@@ -1,7 +1,15 @@
 .git
 .gitignore
+.claude
+.github
 node_modules
+**/node_modules
 dist
+release
 hermes_data
 *.log
 .DS_Store
+docs/screenshots
+packages/desktop
+packages/esp32-s3
+tests
