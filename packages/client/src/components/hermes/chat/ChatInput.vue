@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { DEFAULT_REASONING_EFFORTS, agentReasoningEffortOptions, modelReasoningEfforts } from '@/utils/model-reasoning-effort'
-import type { NativeEffortChoice } from '@/utils/native-model-families'
-import { isBuiltinEkkoSession, isExternalCodingAgentSession, isHermesSession } from '@/utils/hermes/session-agent'
-import { EKKO_SESSION_COMMAND_DEFINITIONS } from '@/utils/hermes/bridge-session-commands'
+import { isHermesSession } from '@/utils/hermes/session-agent'
 import type { Attachment, Session } from '@/stores/hermes/chat'
 import { useChatStore } from '@/stores/hermes/chat'
 import { useAppStore } from '@/stores/hermes/app'
@@ -42,11 +40,9 @@ const props = withDefaults(defineProps<{
   initialText?: string
   persistDraft?: boolean
   draft?: boolean
-  draftConfig?: Pick<Session, 'profile' | 'provider' | 'model' | 'codingAgentMode' | 'agent'>
+  draftConfig?: Pick<Session, 'profile' | 'provider' | 'model'>
   reasoningEffort?: string
   reasoningEffortDisabled?: boolean
-  nativeReasoningEfforts?: string[]
-  nativeEffortChoices?: NativeEffortChoice[]
   sendDisabled?: boolean
   submit?: (text: string, attachments?: Attachment[]) => Promise<boolean>
 }>(), {
@@ -71,28 +67,22 @@ const emit = defineEmits<{
 }>()
 
 const reasoningSession = computed(() => props.draft ? props.draftConfig : composerSession.value)
-const defaultReasoningEffortLabel = computed(() => t(isHermesSession(reasoningSession.value)
-  ? 'chat.reasoningEffort.options.default' : 'chat.reasoningEffort.options.none'))
+const defaultReasoningEffortLabel = computed(() => t('chat.reasoningEffort.options.default'))
 const isMoaSession = computed(() => reasoningSession.value?.provider === 'moa')
-const isGlobalCodingAgentSession = computed(() => reasoningSession.value?.codingAgentMode === 'global')
-const isReadOnlyCodingAgentEffort = computed(() => !props.draft && isGlobalCodingAgentSession.value && isExternalCodingAgentSession(composerSession.value))
 function effortLabel(value: string) {
   return DEFAULT_REASONING_EFFORTS.includes(value) || ['ultra', 'disabled', 'enabled'].includes(value) ? t(`chat.reasoningEffort.options.${value}`) : value
 }
 const showReasoningEffort = ref(false)
-const reasoningEffortOptions = computed(() => agentReasoningEffortOptions(isGlobalCodingAgentSession.value && props.nativeEffortChoices
-  ? props.nativeEffortChoices.map(choice => ({ value: choice.effort,
-    label: choice.effort ? effortLabel(choice.effort) : defaultReasoningEffortLabel.value })) : [
+const reasoningEffortOptions = computed(() => agentReasoningEffortOptions([
   { label: defaultReasoningEffortLabel.value, value: '' },
-  ...(isGlobalCodingAgentSession.value ? props.nativeReasoningEfforts || [] : modelReasoningEfforts(
+  ...modelReasoningEfforts(
     appStore.profileModelGroups?.find(entry => entry.profile === (reasoningSession.value?.profile || profilesStore.activeProfileName))?.groups || appStore.modelGroups || [],
     reasoningSession.value?.provider || appStore.selectedProvider || '',
     reasoningSession.value?.model || appStore.selectedModel || '',
-  )).map(value => ({ label: effortLabel(value), value })),
-], isHermesSession(reasoningSession.value)))
+  ).map(value => ({ label: effortLabel(value), value })),
+], true))
 const currentReasoningEffort = computed<string>(() =>
-  (props.draft ? props.reasoningEffort : composerSession.value?.reasoningEffort
-    || props.nativeEffortChoices?.find(choice => choice.model === composerSession.value?.model)?.effort) || ''
+  (props.draft ? props.reasoningEffort : composerSession.value?.reasoningEffort) || ''
 )
 const reasoningEffortSliderValue = computed(() => {
   const index = reasoningEffortOptions.value.findIndex(option => option.value === currentReasoningEffort.value)
@@ -115,9 +105,7 @@ const reasoningEffortAccentStyle = computed(() => ({
   '--reasoning-effort-accent-color': reasoningEffortAccentColors[currentReasoningEffort.value]
     || reasoningEffortAccentColors[''],
 }))
-const supportsNativeReasoning = computed(() => (props.nativeReasoningEfforts?.length || 0) > 0)
-const canEditReasoningEffort = computed(() => !props.reasoningEffortDisabled && !isReadOnlyCodingAgentEffort.value && (!isGlobalCodingAgentSession.value || (supportsNativeReasoning.value && reasoningEffortOptions.value.length > 1
-  && (!currentReasoningEffort.value || reasoningEffortOptions.value.some(option => option.value === currentReasoningEffort.value)))))
+const canEditReasoningEffort = computed(() => !props.reasoningEffortDisabled)
 const reasoningEffortLabel = computed<string>(() => {
   const v = currentReasoningEffort.value
   if (!v) return defaultReasoningEffortLabel.value
@@ -132,16 +120,14 @@ function onReasoningEffortChange(value: string | null | undefined) {
   }
   const sid = chatStore.activeSessionId
   if (!sid) return
-  const variant = props.nativeEffortChoices?.find(choice => choice.effort === (value || ''))
-  if (variant) void chatStore.setSessionReasoningEffort(sid, variant.effort, variant.model)
-  else void chatStore.setSessionReasoningEffort(sid, value || '')
+  void chatStore.setSessionReasoningEffort(sid, value || '')
 }
 watch([reasoningEffortOptions, currentReasoningEffort, canEditReasoningEffort], ([options]) => {
   if (isMoaSession.value || !canEditReasoningEffort.value) {
     showReasoningEffort.value = false
     return
   }
-  if (!isGlobalCodingAgentSession.value && currentReasoningEffort.value && !options.some(option => option.value === currentReasoningEffort.value)) {
+  if (currentReasoningEffort.value && !options.some(option => option.value === currentReasoningEffort.value)) {
     onReasoningEffortChange('')
   }
 }, { immediate: true })
@@ -246,8 +232,6 @@ const voiceInput = useComposerVoiceInput({
   insertTranscript: insertVoiceTranscriptIntoInput,
 })
 
-const CODING_AGENT_SLASH_COMMANDS = ['context', 'compact', 'usage', 'status']
-
 const bridgeCommands = computed<SlashCommandOption[]>(() =>
   BRIDGE_SESSION_COMMAND_DEFINITIONS.map(command => ({
     key: command.key,
@@ -282,14 +266,8 @@ let bundlesLoadRequestKey = ''
 const isBridgeSession = computed(() => {
   if (props.draft) return false
   const session = composerSession.value
-  if (!session) return chatStore.runtimeMode !== 'global_agent'
-  return session.source === 'cli' && !isBuiltinEkkoSession(session)
+  return !session || isHermesSession(session)
 })
-const isEkkoSession = computed(() => isBuiltinEkkoSession(composerSession.value))
-const isCodingAgentSession = computed(() => isExternalCodingAgentSession(composerSession.value))
-const isCursorSession = computed(() => (composerSession.value?.codingAgentId === 'cursor' || composerSession.value?.codingAgentId === 'antigravity') || (composerSession.value?.agent === 'cursor' || composerSession.value?.agent === 'antigravity'))
-const showSessionUsage = computed(() => isCodingAgentSession.value)
-const isForkCommandSession = computed(() => !!composerSession.value && !isEkkoSession.value && !isCodingAgentSession.value)
 const skillPickerItems = computed(() => {
   const byName = new Map<string, SkillInfo>()
   for (const category of skillCategories.value) {
@@ -310,21 +288,7 @@ const skillPickerItems = computed(() => {
 })
 const filteredBridgeCommands = computed(() => {
   const query = slashQuery.value.trim().toLowerCase()
-  const commands = isEkkoSession.value
-    ? EKKO_SESSION_COMMAND_DEFINITIONS.map(command => ({ ...command, args: command.args || '', description: t(command.descriptionKey) }))
-    : isBridgeSession.value
-    ? bridgeCommands.value
-    : isCodingAgentSession.value
-      ? bridgeCommands.value.filter(command => CODING_AGENT_SLASH_COMMANDS.includes(command.name)
-        && !(command.name === 'context' && isCursorSession.value)
-        && !(command.name === 'compact' && (
-          composerSession.value?.codingAgentId === 'opencode'
-          || composerSession.value?.agent === 'opencode'
-          || isCursorSession.value
-        )))
-      : isForkCommandSession.value
-        ? bridgeCommands.value.filter(command => command.name === 'fork')
-        : []
+  const commands = isBridgeSession.value ? bridgeCommands.value : []
   if (!query) return commands
   return commands.filter((command) => {
     const name = command.name.toLowerCase()
@@ -628,7 +592,7 @@ function scrollCommandIntoView() {
 }
 
 function updateSlashState() {
-  if (!isEkkoSession.value && !isBridgeSession.value && !isCodingAgentSession.value && !isForkCommandSession.value) {
+  if (!isBridgeSession.value) {
     slashActive.value = false
     return
   }
@@ -824,7 +788,7 @@ function currentContextLengthKey() {
 }
 
 async function loadContextLength() {
-  if (props.draft || showSessionUsage.value) return
+  if (props.draft) return
   const key = currentContextLengthKey()
   if (key === contextLengthLoadedKey) return
   if (key === contextLengthRequestKey && contextLengthRequest) return contextLengthRequest
@@ -864,26 +828,18 @@ watch(
     composerSession.value?.model,
     composerSession.value?.source,
     composerSession.value?.agent,
-    composerSession.value?.codingAgentId,
   ],
   loadContextLength,
   { flush: 'post' },
 )
 
-const cumulativeTokens = computed(() => {
-  const session = composerSession.value
-  return (session?.inputTokens ?? 0) + (session?.outputTokens ?? 0)
-    + (session?.cacheReadTokens ?? 0) + (session?.cacheWriteTokens ?? 0)
-})
 const totalTokens = computed(() => {
-  if (showSessionUsage.value) return cumulativeTokens.value
   const context = composerSession.value?.contextTokens
   if (typeof context === 'number' && Number.isFinite(context) && context >= 0) return context
   // Cumulative consumption is not the size of the current context window.
   return null
 })
 const showContextUsage = computed(() => !!composerSession.value)
-const showContextLimit = computed(() => !showSessionUsage.value)
 
 const remainingTokens = computed(() => totalTokens.value == null ? null : Math.max(0, contextLength.value - totalTokens.value))
 
@@ -931,7 +887,7 @@ function addFile(file: File) {
       }
     })
     .catch(() => {
-      // Keep the original video attachment. Coding agents can still inspect its local path.
+      // Keep the original video attachment. Agents can still inspect its local path.
     })
     .finally(() => {
       pendingVideoFrameJobs.delete(job)
@@ -1228,23 +1184,20 @@ function openAttachmentPreview(attachment: Attachment) {
 
     <slot name="before-context-usage" />
     <div v-if="showContextUsage" class="context-usage-row">
-      <span class="context-info" :class="{ 'context-warning': showContextLimit && usagePercent > 80 }">
-        <template v-if="showSessionUsage">{{ t('chat.sessionUsage') }} </template>
+      <span class="context-info" :class="{ 'context-warning': usagePercent > 80 }">
         {{ formatTokens(totalTokens) }}
-        <template v-if="showContextLimit">
-          /
-          <NTooltip trigger="hover" :disabled="isMobileViewport">
-            <template #trigger>
-              <span class="context-limit-editable" @click="handleEditContextLimit">
-                {{ formatTokens(contextLength) }}
-              </span>
-            </template>
-            <span>{{ t('chat.contextClickToEdit') }}</span>
-          </NTooltip>
-          · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
-        </template>
+        /
+        <NTooltip trigger="hover" :disabled="isMobileViewport">
+          <template #trigger>
+            <span class="context-limit-editable" @click="handleEditContextLimit">
+              {{ formatTokens(contextLength) }}
+            </span>
+          </template>
+          <span>{{ t('chat.contextClickToEdit') }}</span>
+        </NTooltip>
+        · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
       </span>
-      <div v-if="showContextLimit && totalTokens != null" class="context-bar">
+      <div v-if="totalTokens != null" class="context-bar">
         <div
           class="context-bar-fill"
           :class="{
@@ -1381,7 +1334,7 @@ function openAttachmentPreview(attachment: Attachment) {
           </NTooltip>
 
           <NPopover
-            v-if="(!draft || draftConfig) && !isMoaSession && (!isGlobalCodingAgentSession || supportsNativeReasoning || currentReasoningEffort)"
+            v-if="(!draft || draftConfig) && !isMoaSession"
             v-model:show="showReasoningEffort"
             trigger="click"
             placement="top-start"
