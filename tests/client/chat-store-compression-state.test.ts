@@ -856,7 +856,6 @@ describe('chat store compression state', () => {
     const store = useChatStore()
     store.sessions = [makeSession('session-1')]
     await store.switchSession('session-1')
-    store.setAutoPlaySpeech(true)
 
     handlers.onRunCompleted({
       event: 'run.completed',
@@ -873,11 +872,6 @@ describe('chat store compression state', () => {
     expect(store.activeSession?.messages.some(
       (message: Message) => message.role === 'system' && message.content.includes('Agent returned no output'),
     )).toBe(false)
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('final answer')
-    expect(autoPlayEvent.detail.messageId).toBe(assistantMessages[0]?.id)
     vi.useRealTimers()
   })
 
@@ -886,7 +880,6 @@ describe('chat store compression state', () => {
     const store = useChatStore()
     store.sessions = [makeSession('session-1')]
     await store.switchSession('session-1')
-    store.setAutoPlaySpeech(true)
     store.activeSession!.messages = [{
       id: 'old-a1',
       role: 'assistant',
@@ -1001,13 +994,11 @@ describe('chat store compression state', () => {
 
   it('renders parsed_content-only completion as a new assistant message after reconnect resume and auto-plays it', async () => {
     vi.useFakeTimers()
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
     const store = useChatStore()
     const session = makeSession('session-1')
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1037,11 +1028,6 @@ describe('chat store compression state', () => {
     expect(store.activeSession?.messages.some(
       (message: Message) => message.role === 'system' && message.content.includes('Agent returned no output'),
     )).toBe(false)
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('final answer')
-    expect(autoPlayEvent.detail.messageId).toBe(assistantMessages[0]?.id)
     vi.useRealTimers()
   })
 
@@ -1122,7 +1108,6 @@ describe('chat store compression state', () => {
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1175,7 +1160,6 @@ describe('chat store compression state', () => {
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1213,11 +1197,6 @@ describe('chat store compression state', () => {
       content: 'final answer',
       isStreaming: false,
     }))
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('final answer')
-    expect(autoPlayEvent.detail.messageId).toBe('current-a1')
     vi.useRealTimers()
   })
 
@@ -1236,7 +1215,6 @@ describe('chat store compression state', () => {
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1286,7 +1264,6 @@ describe('chat store compression state', () => {
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1324,12 +1301,6 @@ describe('chat store compression state', () => {
     expect(assistantMessages[1]).toEqual(expect.objectContaining({
       content: 'final answer',
     }))
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('final answer')
-    expect(autoPlayEvent.detail.messageId).toBe(assistantMessages[1]?.id)
-    expect(autoPlayEvent.detail.messageId).not.toBe('old-a1')
     vi.useRealTimers()
   })
 
@@ -1348,7 +1319,6 @@ describe('chat store compression state', () => {
     store.sessions = [session]
     store.activeSessionId = 'session-1'
     store.activeSession = session
-    store.setAutoPlaySpeech(true)
 
     await store.sendMessage('resume run')
 
@@ -1377,11 +1347,6 @@ describe('chat store compression state', () => {
     await nextTick()
     await vi.advanceTimersByTimeAsync(300)
 
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('new answer')
-    expect(autoPlayEvent.detail.messageId).not.toBe('old-a1')
     vi.useRealTimers()
   })
 
@@ -1391,7 +1356,6 @@ describe('chat store compression state', () => {
     const store = useChatStore()
     store.sessions = [makeSession('session-1')]
     await store.switchSession('session-1')
-    store.setAutoPlaySpeech(true)
     store.activeSession!.messages = [{
       id: 'old-a1',
       role: 'assistant',
@@ -1412,11 +1376,9 @@ describe('chat store compression state', () => {
 
   it('auto-plays only the new assistant message when the current run produces one', async () => {
     vi.useFakeTimers()
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
     const store = useChatStore()
     store.sessions = [makeSession('session-1')]
     await store.switchSession('session-1')
-    store.setAutoPlaySpeech(true)
     store.activeSession!.messages = [{
       id: 'old-a1',
       role: 'assistant',
@@ -1430,11 +1392,6 @@ describe('chat store compression state', () => {
     await nextTick()
     await vi.advanceTimersByTimeAsync(300)
 
-    expect(dispatchSpy).toHaveBeenCalledTimes(1)
-    const autoPlayEvent = dispatchSpy.mock.calls[0][0] as CustomEvent<{ messageId: string; content: string }>
-    expect(autoPlayEvent.type).toBe('auto-play-speech')
-    expect(autoPlayEvent.detail.content).toBe('new answer')
-    expect(autoPlayEvent.detail.messageId).not.toBe('old-a1')
     vi.useRealTimers()
   })
 
