@@ -146,7 +146,6 @@ function isVisibleWebUiSessionSource(source?: string | null): boolean {
 function isRequestedSessionSource(source: string | undefined, sessionSource?: string | null): boolean {
   if (source === 'builtin_agent') return sessionSource === 'builtin_agent'
   if (source === 'global_agent') return sessionSource === 'global_agent'
-  if (source === 'workflow') return sessionSource === 'workflow'
   if (source === 'group_chat') return sessionSource === 'group_chat'
   return isVisibleWebUiSessionSource(sessionSource)
 }
@@ -154,13 +153,12 @@ function isRequestedSessionSource(source: string | undefined, sessionSource?: st
 function requestedSessionSources(source?: string): string[] {
   if (source === 'builtin_agent') return ['builtin_agent']
   if (source === 'global_agent') return ['global_agent']
-  if (source === 'workflow') return ['workflow']
   if (source === 'group_chat') return ['group_chat']
   return ['api_server', 'cli', 'desktop', 'builtin_agent', 'coding_agent', 'global_agent']
 }
 
 function isHermesHistorySessionSource(source?: string | null): boolean {
-  return source !== 'global_agent' && source !== 'workflow' && source !== 'group_chat'
+  return source !== 'global_agent' && source !== 'group_chat'
 }
 
 function sessionLastActive(session: any): number {

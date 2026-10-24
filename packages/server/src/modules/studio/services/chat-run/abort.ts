@@ -17,7 +17,7 @@ const abortCompletions = new WeakMap<SessionState, { runId: string; runMarker?: 
 const abortRequests = new WeakMap<SessionState, Promise<void>>()
 
 function isBridgeRunSource(source?: string): boolean {
-  return source === 'cli' || source === 'global_agent' || source === 'workflow' || source === 'group_chat'
+  return source === 'cli' || source === 'global_agent' || source === 'group_chat'
 }
 
 function settleInterruptedBackgroundTasks(state: SessionState): Array<Record<string, unknown>> {

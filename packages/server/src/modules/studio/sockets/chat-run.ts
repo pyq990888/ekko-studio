@@ -150,13 +150,13 @@ function isHermesWorkerBackedSession(session?: { source?: string | null; agent?:
   // "api_server" is a legacy/default source value; Hermes sessions still use worker-backed runtime.
   // Removed Ekko/coding-agent runtimes stay readable but must not be reattached.
   if (!source || source === 'cli' || source === 'api_server') return true
-  if (source !== 'workflow' && source !== 'group_chat' && source !== 'global_agent') return false
+  if (source !== 'group_chat' && source !== 'global_agent') return false
   const agent = String(session?.agent || '').trim()
   return (!agent || agent === 'hermes') && !session?.agent_session_id
 }
 
 function isBridgeRunSource(source?: string): boolean {
-  return source === 'cli' || source === 'global_agent' || source === 'workflow' || source === 'group_chat'
+  return source === 'cli' || source === 'global_agent' || source === 'group_chat'
 }
 
 /** Removed Ekko/coding-agent sessions stay readable but cannot start new runs. */
@@ -275,8 +275,8 @@ export class ChatRunSocket {
     const session = getSession(sessionId)
     const state = this.sessionMap.get(sessionId)
     if (!session || (session.profile || 'default') !== profile
-      || ['group_chat', 'workflow', 'global_agent'].includes(session.source || '')
-      || ['group_chat', 'workflow', 'global_agent'].includes(state?.source || '')) {
+      || ['group_chat', 'global_agent'].includes(session.source || '')
+      || ['group_chat', 'global_agent'].includes(state?.source || '')) {
       throw new SessionTasksError('Session goals are unavailable in this context', 409)
     }
     return sessionId
@@ -457,15 +457,13 @@ export class ChatRunSocket {
       group_system_prompt?: string
       group_room_id?: string
       group_agent_id?: string
-      workflow_id?: string
-      workflow_node_id?: string
       provider?: string
       model_groups?: Array<{ provider: string; models: string[] }>
       queue_id?: string
       workspace?: string | null
       category_id?: number | null
       source?: string
-      session_source?: 'global_agent' | 'workflow' | 'group_chat'
+      session_source?: 'global_agent' | 'group_chat'
       profile?: string
       allow_command_passthrough?: boolean
       // Local patch (reasoning-effort): per-session reasoning effort override.
@@ -549,8 +547,6 @@ export class ChatRunSocket {
             groupSystemPrompt: data.group_system_prompt,
             groupRoomId: data.group_room_id,
             groupAgentId: data.group_agent_id,
-            workflowId: data.workflow_id,
-            workflowNodeId: data.workflow_node_id,
             profile: runProfile,
             workspace: data.workspace,
             source,
@@ -574,8 +570,6 @@ export class ChatRunSocket {
             agent: 'bridge',
             payload: queuedPayload,
             roomId: data.group_room_id,
-            workflowId: data.workflow_id,
-            workflowNodeId: data.workflow_node_id,
           })
           this.nsp.to(`session:${data.session_id}`).emit('run.queued', queuedPayload)
           logger.info('[chat-run-socket] queued run for session %s (queue: %d)', data.session_id, state.queue.length)
@@ -605,8 +599,6 @@ export class ChatRunSocket {
             agent: 'bridge',
             payload,
             roomId: data.group_room_id,
-            workflowId: data.workflow_id,
-            workflowNodeId: data.workflow_node_id,
           })
         }
         if (data.session_id) {
@@ -835,12 +827,10 @@ export class ChatRunSocket {
       group_system_prompt?: string
       group_room_id?: string
       group_agent_id?: string
-      workflow_id?: string
-      workflow_node_id?: string
       workspace?: string | null
       category_id?: number | null
       source?: string
-      session_source?: 'global_agent' | 'workflow' | 'group_chat'
+      session_source?: 'global_agent' | 'group_chat'
       queue_id?: string
       peerExcludeSocketId?: string
       allow_command_passthrough?: boolean
@@ -868,8 +858,6 @@ export class ChatRunSocket {
       if (!data.autonomous && !data.background_delegation_id) state.backgroundWakeStopped = false
       state.webhookAgent = 'bridge'
       state.webhookRoomId = data.group_room_id
-      state.webhookWorkflowId = data.workflow_id
-      state.webhookWorkflowNodeId = data.workflow_node_id
     }
     if (data.session_id && isBridgeRunSource(source) && isSessionCommand(data.input) && data.allow_command_passthrough !== true) return
 
@@ -917,8 +905,6 @@ export class ChatRunSocket {
           agent: 'bridge',
           payload,
           roomId: data.group_room_id,
-          workflowId: data.workflow_id,
-          workflowNodeId: data.workflow_node_id,
         })
       }
       if (queueRemaining > 0) payload.queue_remaining = queueRemaining
@@ -954,8 +940,6 @@ export class ChatRunSocket {
         agent: 'bridge',
         payload,
         roomId: data.group_room_id,
-        workflowId: data.workflow_id,
-        workflowNodeId: data.workflow_node_id,
       })
       data.onEvent?.(event, payload)
       this.emitPendingInteraction(profile, event, payload)
@@ -1319,8 +1303,6 @@ export class ChatRunSocket {
         ? 'global_agent'
         : source === 'group_chat'
           ? 'group_chat'
-        : source === 'workflow'
-          ? 'workflow'
           : 'cli'
       state.events = []
       const instructions = this.resumeInstructionsForSession(sid)
@@ -1639,8 +1621,6 @@ export class ChatRunSocket {
       group_system_prompt: next.groupSystemPrompt,
       group_room_id: next.groupRoomId,
       group_agent_id: next.groupAgentId,
-      workflow_id: next.workflowId,
-      workflow_node_id: next.workflowNodeId,
       workspace: next.workspace,
       source: next.source,
       session_source: next.sessionSource,
@@ -1670,11 +1650,9 @@ export class ChatRunSocket {
       group_system_prompt?: string
       group_room_id?: string
       group_agent_id?: string
-      workflow_id?: string
-      workflow_node_id?: string
       workspace?: string | null
       source?: string
-      session_source?: 'global_agent' | 'workflow' | 'group_chat'
+      session_source?: 'global_agent' | 'group_chat'
       // Accepted for existing group-chat callers; execution is Hermes-only.
       memory_input?: string | ContentBlock[]
       memory_messages?: Array<{ id?: string; role: 'user' | 'assistant'; content: string; metadata?: Record<string, unknown>; createdAt?: string }>
@@ -1775,8 +1753,6 @@ export class ChatRunSocket {
             agent: 'bridge',
             payload: resolvedPayload,
             roomId: data.group_room_id,
-            workflowId: data.workflow_id,
-            workflowNodeId: data.workflow_node_id,
           })
           this.nsp.to(`session:${sessionId}`).emit('approval.resolved', resolvedPayload)
           onEvent('approval.resolved', resolvedPayload)
@@ -1836,7 +1812,7 @@ export class ChatRunSocket {
       this.runWaiters.set(sessionId, waiters)
 
       const fakeSocket = {
-        id: `workflow-run-${sessionId}`,
+        id: `chat-run-${sessionId}`,
         connected: true,
         data: { user: options.user, groupRunIsCurrent: options.groupRunIsCurrent },
         join: () => {},
@@ -1861,8 +1837,6 @@ export class ChatRunSocket {
             agent: 'bridge',
             payload,
             roomId: data.group_room_id,
-            workflowId: data.workflow_id,
-            workflowNodeId: data.workflow_node_id,
           })
           finish({ ok: false, event: 'run.failed', error })
         })
@@ -1873,7 +1847,7 @@ export class ChatRunSocket {
     const sid = String(sessionId || '').trim()
     if (!sid) return
     const fakeSocket = {
-      id: `workflow-abort-${sid}`,
+      id: `chat-abort-${sid}`,
       connected: false,
       data: {},
       emit: () => {},
@@ -1920,8 +1894,6 @@ export class ChatRunSocket {
       agent: state?.webhookAgent || 'bridge',
       payload: tagged,
       roomId: state?.webhookRoomId,
-      workflowId: state?.webhookWorkflowId,
-      workflowNodeId: state?.webhookWorkflowNodeId,
     })
     this.emitPendingInteraction(profile, event, tagged)
     if (state?.isWorking) {
@@ -2115,8 +2087,6 @@ export class ChatRunSocket {
       agent: state?.webhookAgent || 'bridge',
       payload: tagged,
       roomId: state?.webhookRoomId,
-      workflowId: state?.webhookWorkflowId,
-      workflowNodeId: state?.webhookWorkflowNodeId,
     })
     this.emitPendingInteraction(profile, event, tagged)
     this.nsp.to(`session:${sessionId}`).emit(event, tagged)
@@ -2158,7 +2128,7 @@ export class ChatRunSocket {
     const state = this.sessionMap.get(sessionId)
     const source = state?.source || getSession(sessionId)?.source
     const runId = state?.activeRunMarker || state?.responseRun?.runMarker || payload.run_marker || state?.runId || payload.run_id
-    if (source !== 'group_chat' && source !== 'workflow') publishAppState(stateEvent('chat.run.updated', profile,
+    if (source !== 'group_chat') publishAppState(stateEvent('chat.run.updated', profile,
       { session_id: sessionId, run_id: runId },
       { state: { session_id: sessionId, status, timestamp: Date.now(), started_at: state?.runStartedAt,
         reset_progress: event === 'run.started' } }))

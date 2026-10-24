@@ -163,14 +163,6 @@ export function studioMcpUsageGuidelines(capabilities?: StudioMcpCapabilities): 
   return rules.join('\n')
 }
 
-export const WORKFLOW_NODE_SYSTEM_CONTEXT = `
-You are executing one node in a workflow.
-
-Focus only on the current node task. Use upstream node results as context, but do not rerun upstream work. If upstream results conflict, call out the conflict and proceed with the best supported answer.
-
-Return the result for this node clearly and concisely. Do not describe the workflow mechanics unless the task asks for it.
-`;
-
 /**
  * Get the complete system prompt with format guidelines
  * @param customPrompt - Optional custom system prompt to prepend
@@ -184,10 +176,6 @@ export function getSystemPrompt(
 
   if (customPrompt) {
     parts.push(customPrompt);
-  }
-
-  if (options?.source === 'workflow') {
-    parts.push(WORKFLOW_NODE_SYSTEM_CONTEXT.trim());
   }
 
   const mcpGuidance = studioMcpUsageGuidelines(options?.mcpCapabilities);

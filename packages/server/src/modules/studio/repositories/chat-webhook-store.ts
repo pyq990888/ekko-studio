@@ -23,14 +23,10 @@ export const CHAT_WEBHOOK_EVENT_TYPES = [
   'group.approval.resolved',
   'group.clarification.requested',
   'group.clarification.resolved',
-  'workflow.run.completed',
-  'workflow.run.failed',
   'chat.run.updated',
   'group.run.updated',
-  'workflow.run.updated',
   'chat.plan.updated',
   'group.plan.updated',
-  'workflow.plan.updated',
 ] as const
 
 export type ChatWebhookEventType = (typeof CHAT_WEBHOOK_EVENT_TYPES)[number]

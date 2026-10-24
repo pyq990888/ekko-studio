@@ -61,12 +61,11 @@ const BRIDGE_TITLE_EVENT_POLL_INTERVAL_MS = 500
 const BRIDGE_TITLE_EVENT_POLL_TIMEOUT_MS = 45_000
 const BRIDGE_GOAL_EVALUATE_TIMEOUT_MS = 120_000
 
-type BridgeRunSource = Extract<ChatRunSource, 'cli' | 'global_agent' | 'workflow' | 'group_chat'>
+type BridgeRunSource = Extract<ChatRunSource, 'cli' | 'global_agent' | 'group_chat'>
 
 function normalizeBridgeRunSource(source?: string | null, sessionSource?: string | null): BridgeRunSource {
   if (sessionSource === 'global_agent' || source === 'global_agent') return 'global_agent'
   if (sessionSource === 'group_chat' || source === 'group_chat') return 'group_chat'
-  if (sessionSource === 'workflow' || source === 'workflow') return 'workflow'
   return 'cli'
 }
 
@@ -1883,11 +1882,8 @@ async function applyBridgeChunkAsync(
   }
   emit(eventName, payload)
 
-  // Workflow node progression is owned by the DAG scheduler. Use the immutable
-  // source of the run being finalized: state.source may already describe the
-  // next queued run by this point. The standing-goal judge uses the same profile
-  // worker as chat runs and can otherwise delay the scheduler's next node.
-  if (!terminalError && runSource !== 'workflow') {
+  // The standing-goal judge uses the same profile worker as chat runs.
+  if (!terminalError) {
     await maybeEnqueueGoalContinuation({
       nsp,
       socket,

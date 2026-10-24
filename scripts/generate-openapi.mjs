@@ -71,7 +71,6 @@ const tagMappings = {
   'modules/ekko/routes/skills.ts': { name: 'Ekko Skills', description: 'Ekko reusable skill management' },
   'modules/ekko/routes/mcp.ts': { name: 'Ekko MCP', description: 'Ekko MCP server management' },
   'modules/ekko/routes/config.ts': { name: 'Ekko Config', description: 'Ekko runtime configuration management' },
-  'modules/studio/routes/workflows.ts': { name: 'Workflows', description: 'Cross-agent workflow orchestration' },
   'modules/studio/routes/sessions.ts': { name: 'Sessions', description: 'Cross-agent chat session management' },
   'modules/studio/routes/logs.ts': { name: 'Logs', description: 'Cross-agent log file access' },
   'modules/studio/routes/group-chat.ts': { name: 'Group Chat', description: 'Cross-agent group chat management' },
@@ -1115,12 +1114,12 @@ openapi.paths['/api/studio/chat-run/runs'] = {
               },
               source: {
                 type: 'string',
-                enum: ['cli', 'builtin_agent', 'coding_agent', 'global_agent', 'workflow', 'group_chat'],
-                description: 'Session source. Use cli for Hermes bridge runs, builtin_agent for native Ekko direct chats, coding_agent for external CLIs, or the matching group_chat/workflow/global_agent surface. Omit source for normal Hermes chat runs; do not use the legacy api_server source.',
+                enum: ['cli', 'builtin_agent', 'coding_agent', 'global_agent', 'group_chat'],
+                description: 'Session source. Use cli for Hermes bridge runs, builtin_agent for native Ekko direct chats, coding_agent for external CLIs, or the matching group_chat/global_agent surface. Omit source for normal Hermes chat runs; do not use the legacy api_server source.',
               },
               session_source: {
                 type: 'string',
-                enum: ['global_agent', 'workflow', 'group_chat'],
+                enum: ['global_agent', 'group_chat'],
                 description: 'Marks a coding-agent or bridge session as launched from the global agent.',
               },
               instructions: {
@@ -1409,7 +1408,7 @@ openapi.paths['/api/coding-agents/models'] = { get: {
 
 const usageStatsOperation = openapi.paths['/api/studio/usage/stats']?.get
 if (usageStatsOperation) {
-  usageStatsOperation.description = 'Aggregates one usage origin across accessible Profiles. Defaults to internal (existing sessions, workflows and coding agents). External includes every Model API request, even when Studio calls its own endpoint. The categories can represent the same physical upstream call and must not be summed as a deduplicated total. Account means the session owner for internal usage and the authenticated API caller for external usage; unknown historical ownership remains unassigned.'
+  usageStatsOperation.description = 'Aggregates one usage origin across accessible Profiles. Defaults to internal (existing sessions and coding agents). External includes every Model API request, even when Studio calls its own endpoint. The categories can represent the same physical upstream call and must not be summed as a deduplicated total. Account means the session owner for internal usage and the authenticated API caller for external usage; unknown historical ownership remains unassigned.'
   usageStatsOperation.parameters = usageStatsOperation.parameters.filter(parameter => parameter.name !== 'origin')
   usageStatsOperation.parameters.push({ name: 'origin', in: 'query', required: false, schema: { type: 'string', enum: ['internal', 'external'], default: 'internal' } })
   const accountParameter = usageStatsOperation.parameters.find(parameter => parameter.name === 'account')
@@ -1519,7 +1518,7 @@ openapi.components.schemas.SessionTaskListItem = {
 const taskListOperation = openapi.paths['/api/studio/session-tasks'].get
 taskListOperation.operationId = 'listSessionTaskItems'
 taskListOperation.summary = 'List conversation tasks across accessible profiles'
-taskListOperation.description = 'Lists persisted single-chat tasks, including archived sessions, with stable pagination. Profile access and pending deletions are applied before counting. Group, workflow and global-agent tasks are excluded. Open tasks precede completed tasks; update time and id determine stable order within each status. Does not invoke a model or modify task status.'
+taskListOperation.description = 'Lists persisted single-chat tasks, including archived sessions, with stable pagination. Profile access and pending deletions are applied before counting. Group and global-agent tasks are excluded. Open tasks precede completed tasks; update time and id determine stable order within each status. Does not invoke a model or modify task status.'
 taskListOperation.parameters = [
   { name: 'profile', in: 'query', schema: { type: 'string' }, description: 'Optional exact profile filter. Empty selects all accessible, existing profiles; run credentials remain bound to their profile.' },
   { name: 'search', in: 'query', schema: { type: 'string', maxLength: 200 }, description: 'Literal substring in task title, summary or session name, including its first-message fallback.' },
@@ -1552,7 +1551,7 @@ const sessionTaskChangeSchema = {
 for (const action of ['list', 'update']) {
   const operation = openapi.paths[`/api/studio/session-tasks/${action}`].post
   operation.summary = `${action === 'list' ? 'Read' : 'Update'} the active turn session goals`
-  operation.description = 'The current turn context binds the session and profile. Expired contexts, other profiles, group chats, workflows and background/delegated runs are rejected. No per-turn task plan is created or modified. Writes upsert only changed/new goals and preserve omitted goals; revision conflicts require rereading. New completions require completion_evidence.'
+  operation.description = 'The current turn context binds the session and profile. Expired contexts, other profiles, group chats and background/delegated runs are rejected. No per-turn task plan is created or modified. Writes upsert only changed/new goals and preserve omitted goals; revision conflicts require rereading. New completions require completion_evidence.'
   operation.requestBody = { required: true, content: { 'application/json': { schema: {
     type: 'object', additionalProperties: false,
     required: action === 'list' ? ['context_id'] : ['context_id', 'revision', 'changes'],

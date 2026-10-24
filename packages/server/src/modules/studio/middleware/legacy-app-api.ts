@@ -13,7 +13,6 @@ export const LEGACY_APP_API_PREFIXES: readonly LegacyAppApiPrefix[] = Object.fre
   ['/api/hermes/group-chat-link', '/api/studio/group-chat-link'],
   ['/api/hermes/group-chat', '/api/studio/group-chat'],
   ['/api/hermes/performance', '/api/studio/performance'],
-  ['/api/hermes/workflows', '/api/studio/workflows'],
   ['/api/hermes/sessions', '/api/studio/sessions'],
   ['/api/hermes/workspace', '/api/studio/workspace'],
   ['/api/hermes/download', '/api/studio/files/download'],

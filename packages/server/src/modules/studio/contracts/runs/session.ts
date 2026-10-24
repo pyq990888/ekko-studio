@@ -74,12 +74,10 @@ export interface QueuedRun {
   groupSystemPrompt?: string
   groupRoomId?: string
   groupAgentId?: string
-  workflowId?: string
-  workflowNodeId?: string
   profile: string
   workspace?: string | null
   source?: ChatRunSource
-  sessionSource?: 'global_agent' | 'workflow' | 'group_chat'
+  sessionSource?: 'global_agent' | 'group_chat'
   codingAgentId?: ChatCodingAgentId
   agentId?: ChatCodingAgentId
   mode?: RunMode
@@ -174,8 +172,6 @@ export interface SessionState {
   source?: ChatRunSource
   webhookAgent?: 'bridge' | 'ekko' | 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode'
   webhookRoomId?: string
-  webhookWorkflowId?: string
-  webhookWorkflowNodeId?: string
   bridgePendingAssistantContent?: string
   bridgeAssistantMessageId?: string
   bridgePendingReasoningContent?: string

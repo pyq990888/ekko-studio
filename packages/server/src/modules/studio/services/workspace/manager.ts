@@ -69,15 +69,6 @@ export function defaultGroupChatWorkspace(profile: string, roomId: string): stri
   )
 }
 
-export function defaultWorkflowWorkspace(profile: string, workflowId: string): string {
-  return join(
-    config.appHome,
-    'workflow',
-    safeWorkspaceSegment(profile, 'default'),
-    safeWorkspaceSegment(workflowId, 'workflow'),
-  )
-}
-
 export function defaultCodingAgentWorkspace(profile: string, provider: string): string {
   return join(
     getWebUiHome(),

@@ -35,6 +35,6 @@ export function normalizeEkkoRunData(
   data.agent_id = 'ekko-agent'
   if (data.coding_agent_id) data.coding_agent_id = 'ekko-agent'
   const surface = [data.session_source, data.source, stored?.source].find(source =>
-    source === 'group_chat' || source === 'workflow' || source === 'global_agent')
+    source === 'group_chat' || source === 'global_agent')
   data.source = surface || 'builtin_agent'
 }

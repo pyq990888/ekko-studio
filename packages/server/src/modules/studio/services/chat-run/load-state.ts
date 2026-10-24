@@ -42,12 +42,12 @@ function restoreBackgroundDelegations(messages: any[]): SessionState['background
 }
 
 export function resolveRunSource(source?: string, sessionId?: string): ChatRunSource {
-  if (source === 'builtin_agent' || source === 'coding_agent' || source === 'global_agent' || source === 'workflow' || source === 'group_chat' || source === 'cli') return source
+  if (source === 'builtin_agent' || source === 'coding_agent' || source === 'global_agent' || source === 'group_chat' || source === 'cli') return source
   if (sessionId) {
     const stored = getSession(sessionId)
     const storedSource = stored?.source
     if (storedSource === 'builtin_agent' || storedSource === 'coding_agent'
-      || storedSource === 'global_agent' || storedSource === 'workflow' || storedSource === 'group_chat') {
+      || storedSource === 'global_agent' || storedSource === 'group_chat') {
       return storedSource
     }
     const agent = String(stored?.agent || '').trim().toLowerCase()

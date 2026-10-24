@@ -6,7 +6,7 @@ import { sessionTaskWebhookContent, type WebhookSessionTask } from './session-ta
 export const CHAT_WEBHOOK_SCHEMA_VERSION = 1
 export const MAX_WEBHOOK_CONTENT_BYTES = 64 * 1024
 
-export type ChatRunWebhookSource = 'chat' | 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'workflow' | 'group_chat'
+export type ChatRunWebhookSource = 'chat' | 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'group_chat'
 export type ChatRunWebhookAgent = 'bridge' | 'ekko' | 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode'
 export type ChatWebhookLifecycleStatus = 'created' | 'queued' | 'started' | 'requested' | 'resolved' | 'completed' | 'failed' | 'updated'
 export type ChatWebhookMessageRole = 'user' | 'command' | 'assistant'
@@ -27,8 +27,6 @@ export interface ChatRunWebhookEvent {
     approval_id?: string
     clarification_id?: string
     room_id?: string
-    workflow_id?: string
-    workflow_node_id?: string
     plan_id?: string
     task_id?: string
   }

@@ -35,7 +35,6 @@ import { refreshConfiguredProviderModelCatalogsInBackground } from '../modules/h
 import { refreshModelCatalog } from '../modules/studio/public/model-catalog'
 import { setupGlobalEkkoAgent } from './ekko'
 import { injectManagedEkkoMcpServers } from '../modules/ekko/services/mcp'
-import { WorkflowSocketServer } from '../modules/studio/sockets/workflow'
 import { logger } from '../modules/studio/public/logging'
 import { createStaticCompressionMiddleware } from '../modules/studio/middleware/static-compression'
 import { getStaticCacheControl, SPA_ENTRY_CACHE_CONTROL } from '../modules/studio/middleware/static-cache'
@@ -77,7 +76,6 @@ const servers: any[] = []
 let groupChatServer: GroupChatServer | null = null
 let realtimeHub: RealtimeHub | null = null
 let chatRunServer: any = null
-let workflowSocketServer: WorkflowSocketServer | null = null
 let groupAgentRelayServer: GroupAgentRelayServer | null = null
 let agentBridgeManager: any = null
 let desktopShutdownHandler: ShutdownHandler | null = null
@@ -560,29 +558,6 @@ export async function bootstrap() {
     close: () => groupAgentOutboundRelayManager.shutdown(),
   })
   void groupAgentOutboundRelayManager.restore()
-
-  // A process restart loses in-memory scheduler, approval, and runner ownership.
-  // Persist a fail-closed terminal state before exposing workflow sockets, then abort
-  // any surviving session runners through the now-registered ChatRun service.
-  const { getWorkflowManager } = await import('../modules/studio/services/workflow/manager')
-  const recoveredWorkflows = await getWorkflowManager().recoverActiveRuns()
-  if (recoveredWorkflows.runs > 0) {
-    logger.warn('Recovered %d orphaned workflow runs and aborted %d sessions', recoveredWorkflows.runs, recoveredWorkflows.sessions)
-  }
-  const { getWorkflowScheduleService } = await import('../modules/studio/services/workflow/schedule')
-  const workflowScheduleService = getWorkflowScheduleService()
-  workflowScheduleService.start()
-  additionalShutdownSteps.push({
-    name: 'Workflow scheduler',
-    close: () => workflowScheduleService.stop(),
-  })
-
-  workflowSocketServer = new WorkflowSocketServer(hub.io)
-  workflowSocketServer.init()
-  additionalShutdownSteps.push({
-    name: 'Workflow Socket.IO runtime',
-    close: () => workflowSocketServer?.close(),
-  })
 
   // Session deleter — periodically drain pending session deletes
   const { SessionDeleter } = await import('../modules/hermes/services/history/session-deleter')

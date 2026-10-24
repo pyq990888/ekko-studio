@@ -6,13 +6,13 @@ import { acceptTaskPlanRevision, taskPlanWebhookSnapshot, type WebhookTaskPlan }
 export type DomainEventType = 'group.message.created' | 'group.run.failed'
   | 'group.approval.requested' | 'group.approval.resolved'
   | 'group.clarification.requested' | 'group.clarification.resolved'
-  | 'workflow.run.completed' | 'workflow.run.failed' | 'group.plan.updated'
+  | 'group.plan.updated'
 
 function publish(event: BusinessEvent, content = '', role?: 'user' | 'assistant', plan?: WebhookTaskPlan): void {
   const text = truncateChatWebhookContent(content)
   const webhook: ChatRunWebhookEvent = {
     id: event.id, type: event.type as DomainEventType, occurred_at: event.occurred_at,
-    profile: event.profile, source: event.source as 'group_chat' | 'workflow', subject: event.subject,
+    profile: event.profile, source: event.source as 'group_chat', subject: event.subject,
     summary: { status: plan ? 'updated' : event.type.endsWith('.failed') ? 'failed' : event.type.endsWith('.requested') ? 'requested'
       : event.type.endsWith('.resolved') ? 'resolved' : event.type.endsWith('.created') ? 'created' : 'completed',
       role, ...(typeof event.payload.resolved === 'boolean' ? { resolved: event.payload.resolved } : {}) },
@@ -21,14 +21,6 @@ function publish(event: BusinessEvent, content = '', role?: 'user' | 'assistant'
   }
   ensureBusinessConsumers()
   businessEvents.publish({ ...event, chat: webhook })
-}
-
-export function publishDomainEvent(type: 'workflow.run.completed' | 'workflow.run.failed', profile: string,
-  subject: BusinessEvent['subject'], display: Record<string, unknown>): void {
-  profile = profile?.trim() || 'default'
-  publish({ schema_version: 1, id: stableChatWebhookEventId(`${type}:${profile}:${subject.workflow_id}:${subject.run_id}`), type,
-    occurred_at: new Date().toISOString(),
-    profile, source: 'workflow', subject, payload: { display } })
 }
 
 export function publishGroupMessage(room: { id: string; name: string; summaryProfile: string }, message: Record<string, unknown>, agents: unknown[]): void {
