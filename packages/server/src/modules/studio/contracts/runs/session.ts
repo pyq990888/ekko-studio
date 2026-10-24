@@ -62,8 +62,6 @@ export interface SessionMessage {
 export interface QueuedRun {
   /** Internal admission check, never serialized or supplied by the client. */
   authorize?: () => Promise<void>
-  /** Captured at admission, independent of whichever socket drains the queue. */
-  pushTargetId?: string
   queue_id: string
   input: string | ContentBlock[]
   displayInput?: string | ContentBlock[] | null
@@ -141,7 +139,6 @@ export interface SessionState {
   /** Snapshot the owning runtime's interrupted turn without waiting for model IO. */
   finalizeRunUsage?: () => RunUsageSummary | undefined
   nativeUsageSource?: 'coding_agent'
-  pushTargetId?: string
   messages: SessionMessage[]
   messageTotal?: number
   messageLoadedCount?: number

@@ -26,7 +26,6 @@ export interface ObserveChatRunWebhookEventInput {
   roomId?: string
   workflowId?: string
   workflowNodeId?: string
-  pushTargetId?: string
 }
 
 function stringValue(value: unknown): string {
@@ -113,7 +112,7 @@ export function observeChatRunWebhookEvent(input: ObserveChatRunWebhookEventInpu
   const occurrenceKey = plan ? `${plan.plan_id}:${plan.revision}` : approvalId || clarificationId || (input.event.startsWith('run.') ? runId || queueId || messageId : messageId || toolCallId || runId || queueId) || randomUUID()
   // Coding-agent runtime IDs may persist across turns; mobile roots must not collapse.
   const dedupeKey = plan ? `${mapping.type}:${input.profile || 'default'}:${sessionId}:${occurrenceKey}`
-    : `${mapping.type}:${sessionId}:${occurrenceKey}${input.pushTargetId ? `:${input.pushTargetId}` : ''}`
+    : `${mapping.type}:${sessionId}:${occurrenceKey}`
   const rawContent = input.event === 'run.completed'
     ? stringValue(payload.output)
     : input.event === 'message.created'
@@ -169,8 +168,7 @@ export function observeChatRunWebhookEvent(input: ObserveChatRunWebhookEventInpu
   if (plan && !acceptTaskPlanRevision(`${mapping.type}:${event.profile}`, plan)) return false
   ensureBusinessConsumers()
   return businessEvents.publish({ schema_version: 1, id: event.id, type: event.type, occurred_at: event.occurred_at,
-    profile: event.profile.trim() || 'default', source: event.source, subject: event.subject, payload, chat: event,
-    ...(input.pushTargetId ? { push_target_id: input.pushTargetId } : {}) })
+    profile: event.profile.trim() || 'default', source: event.source, subject: event.subject, payload, chat: event })
 }
 
 export * from './dispatcher'

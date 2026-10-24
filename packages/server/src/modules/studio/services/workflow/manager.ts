@@ -1,5 +1,4 @@
 import { isNativeCodingAgent, isGlobalOnlyCodingAgent } from '../../contracts/agents/native-coding-agents'
-import { bindRunPushTarget, pushRunTransaction, type PushActor } from '../../repositories/run-push-store'
 import { EventEmitter } from 'events'
 import { randomUUID } from 'crypto'
 import {
@@ -81,8 +80,6 @@ export interface WorkflowExecutionPreflightResult {
 }
 
 export interface WorkflowRunNowInput {
-  pushActor?: PushActor
-  pushSnapshot?: { ciphertext: string | null; platform: string }
   profile?: string | null
   startNodeIds?: string[]
   input?: string | null
@@ -1554,7 +1551,7 @@ export class WorkflowManager extends EventEmitter<WorkflowManagerEvents> {
           ...(node.data.reasoningEffort !== 'default'
             ? { reasoning_effort: node.data.reasoningEffort }
             : {}),
-        }, { profile, user: args.user, timeoutMs: remainingTimeoutMs, approvalChoice: 'once', pushRoot: { kind: 'workflow', profile, runId: run.id } })
+        }, { profile, user: args.user, timeoutMs: remainingTimeoutMs, approvalChoice: 'once' })
         if (isCanceled()) throw new Error(getWorkflowRun(run.id)?.error || 'Workflow run canceled')
         if (!runResult.ok) {
           const rawError = runResult.error || `node ${node.id} failed`
@@ -2078,7 +2075,6 @@ export class WorkflowManager extends EventEmitter<WorkflowManagerEvents> {
             user: args.user,
             timeoutMs: remainingTimeoutMs,
             approvalChoice: 'once',
-            pushRoot: { kind: 'workflow', profile, runId: run.id },
           })
           if (!runResult.ok) {
             const error = runResult.error || `node ${node.id} failed`
@@ -2267,7 +2263,7 @@ export class WorkflowManager extends EventEmitter<WorkflowManagerEvents> {
       const createRun = () => {
         const created = createWorkflowRun({
         workflow_id: workflow.id,
-        user_id: input.user?.id ?? input.pushActor?.userId ?? null,
+        user_id: input.user?.id ?? null,
         profile,
         workspace: workflow.workspace,
         start_node_ids: executionPreflight.schedulerStartNodeIds,
@@ -2283,10 +2279,9 @@ export class WorkflowManager extends EventEmitter<WorkflowManagerEvents> {
         trigger_source: input.triggerSource === 'scheduled' ? 'scheduled' : 'manual',
         scheduled_at: input.triggerSource === 'scheduled' ? input.scheduledAt ?? null : null,
       })
-        if (input.pushActor) bindRunPushTarget({ kind: 'workflow', profile, runId: created.id }, workflow.id, input.pushActor, input.pushSnapshot)
         return created
       }
-      run = input.pushActor ? pushRunTransaction(createRun) : createRun()
+      run = createRun()
     } finally {
       releaseAdmission()
     }

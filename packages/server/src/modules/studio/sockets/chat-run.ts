@@ -2,7 +2,6 @@ import { withRunUsage, onRunUsageUpdated } from '../repositories/run-usage-store
 import { recordSessionUploadAttachments } from '../services/files/session-uploads'
 import { hermesStudioMcpCapabilities } from '../services/chat-run/studio-mcp'
 import { publishAppState, stateEvent } from '../services/webhooks/app-event-state'
-import { type PushRunRef, getRunPushTarget } from '../repositories/run-push-store'
 import { ClarificationRuns } from '../services/clarification-runs'
 import { TaskPlanRuns, taskPlanRunInstruction } from '../services/task-plan-runs'
 import { runMcpCredentials } from '../services/auth/run-mcp-credentials'
@@ -857,14 +856,12 @@ export class ChatRunSocket {
     profile: string,
     skipUserMessage = false,
     backgroundContinuationContext?: BackgroundContinuationContext,
-    pushTargetId?: string,
   ) {
     const source = resolveRunSource(data.source, data.session_id)
     if (isRemovedRunSource(source) || isRemovedRuntimeSession(data.session_id ? getSession(data.session_id) : undefined)) {
       throw removedRunError()
     }
     const surface = data.session_source || source
-    if (data.session_id) getOrCreateSession(this.sessionMap, data.session_id).pushTargetId = pushTargetId
     const mcpCapabilities = await hermesStudioMcpCapabilities(profile)
     if (data.session_id) {
       const state = getOrCreateSession(this.sessionMap, data.session_id)
@@ -913,7 +910,6 @@ export class ChatRunSocket {
       }
       if (data.session_id) {
         observeChatRunWebhookEvent({
-          pushTargetId,
           event: 'run.failed',
           sessionId: data.session_id,
           profile,
@@ -951,7 +947,6 @@ export class ChatRunSocket {
       if (data.session_id) this.observeQueueInsertionRunEvent(data.session_id, event, payload)
       if (data.session_id) this.finishTaskPlanRun(data.session_id, event, payload, planContext)
       observeChatRunWebhookEvent({
-        pushTargetId,
         event,
         sessionId: String(data.session_id || payload?.session_id || ''),
         profile,
@@ -1656,7 +1651,7 @@ export class ChatRunSocket {
       background_delegation_id: next.backgroundDelegationId,
       background_claim_id: next.backgroundClaimId,
       autonomous: next.autonomous,
-    }, runProfile, skipUserMessage, backgroundContinuationContext, next.pushTargetId)
+    }, runProfile, skipUserMessage, backgroundContinuationContext)
   }
 
   // --- Helpers ---
@@ -1713,7 +1708,6 @@ export class ChatRunSocket {
       groupRunIsCurrent?: () => boolean
       timeoutMs?: number
       approvalChoice?: ChatRunAutoApprovalChoice
-      pushRoot?: PushRunRef
       onEvent?: (event: string, payload: any) => void
     } = {},
   ): Promise<ChatRunAndWaitResult> {
@@ -1722,7 +1716,6 @@ export class ChatRunSocket {
     const profile = options.profile || data.profile || getSession(sessionId)?.profile || getActiveProfileName() || 'default'
     const source = resolveRunSource(data.source, sessionId)
     if (isRemovedRunSource(source) || isRemovedRuntimeSession(getSession(sessionId))) throw removedRunError()
-    const pushTargetId = options.pushRoot ? getRunPushTarget(options.pushRoot)?.id : undefined
     const state = getOrCreateSession(this.sessionMap, sessionId)
     state.events = []
     state.isWorking = true
@@ -1776,7 +1769,6 @@ export class ChatRunSocket {
           }
           observeChatRunWebhookEvent({
             event: 'approval.resolved',
-            pushTargetId,
             sessionId,
             profile,
             source,
@@ -1857,13 +1849,12 @@ export class ChatRunSocket {
         emit: (event: string, payload: any) => onEvent(event, payload),
       } as unknown as Socket
 
-      this.handleRun(fakeSocket, { ...data, onEvent }, profile, false, undefined, pushTargetId)
+      this.handleRun(fakeSocket, { ...data, onEvent }, profile, false, undefined)
         .catch(err => {
           const error = err instanceof Error ? err.message : String(err)
           const payload = { event: 'run.failed', session_id: sessionId, error }
           observeChatRunWebhookEvent({
             event: 'run.failed',
-            pushTargetId,
             sessionId,
             profile,
             source,
@@ -1922,7 +1913,6 @@ export class ChatRunSocket {
     const state = this.sessionMap.get(sessionId)
     const storedSource = getSession(sessionId)?.source
     observeChatRunWebhookEvent({
-      pushTargetId: state?.isWorking ? state.pushTargetId : undefined,
       event,
       sessionId,
       profile,
@@ -2118,7 +2108,6 @@ export class ChatRunSocket {
     const state = this.sessionMap.get(sessionId)
     const storedSource = getSession(sessionId)?.source
     observeChatRunWebhookEvent({
-      pushTargetId: state?.isWorking ? state.pushTargetId : undefined,
       event,
       sessionId,
       profile,

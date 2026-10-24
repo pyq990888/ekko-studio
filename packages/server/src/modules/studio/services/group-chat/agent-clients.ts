@@ -1,7 +1,6 @@
 import { isNativeCodingAgent, isGlobalOnlyCodingAgent } from '../../contracts/agents/native-coding-agents'
 import { hermesStudioMcpCapabilities } from '../chat-run/studio-mcp'
 import { studioMcpUsageGuidelines } from '../../public/runs/prompt'
-import { findPushRunLink, linkPushRun, type PushRunRef } from '../../repositories/run-push-store'
 import { withTaskPlanTurnContext } from '../task-plan-runs'
 import type { TaskPlanSnapshot } from '../../contracts/task-plan'
 import { groupTaskPlanMessage } from './task-plan'
@@ -327,7 +326,6 @@ export interface GroupChatRunService {
         options?: {
             user?: AuthenticatedUser
             groupRunIsCurrent?: () => boolean
-            pushRoot?: PushRunRef
             profile?: string
             timeoutMs?: number
             onEvent?: (event: string, payload: any) => void
@@ -1164,8 +1162,6 @@ export class AgentClient implements GroupAgentExecutor {
     ): Promise<void> {
         if (!this.chatRunService) throw new Error('Chat run service is not ready')
         const responseRunId = groupMessageId(roomId, this.profile, this.name)
-        const pushRoot = findPushRunLink('group_root', roomId, msg.handoffChainId || msg.messageId || '')
-        if (pushRoot) linkPushRun('group_runtime', roomId, responseRunId, pushRoot)
         const runMessageId = groupMessagePartId(responseRunId, 0)
         const sessionId = groupRuntimeSessionId(roomId, this.profile, this.name)
         this.activeSessions.set(roomId, sessionId)
@@ -1277,7 +1273,6 @@ export class AgentClient implements GroupAgentExecutor {
                 user: executionUser,
                 groupRunIsCurrent: () => isCurrent() && (!executionUser
                     || groupRunUser(this.storage, roomId, this.profile, msg)?.id === executionUser.id),
-                ...(pushRoot ? { pushRoot: { kind: pushRoot.kind, profile: pushRoot.profile, runId: pushRoot.run_id } } : {}),
                 onEvent: (event, payload = {}) => {
                     if (payload.run_usage && ['run.completed', 'run.failed', 'abort.completed', 'run.usage.updated'].includes(event)
                         && this.roomSessionIsCurrent(roomId, sessionId)) {
@@ -1413,8 +1408,6 @@ export class AgentClient implements GroupAgentExecutor {
             return
         }
         const runMessageId = groupMessageId(roomId, this.profile, this.name)
-        const pushRoot = findPushRunLink('group_root', roomId, msg.handoffChainId || msg.messageId || '')
-        if (pushRoot) linkPushRun('group_runtime', roomId, runMessageId, pushRoot)
         let partIndex = 0
         let streamMessageId = groupMessagePartId(runMessageId, partIndex)
         let currentContent = ''
