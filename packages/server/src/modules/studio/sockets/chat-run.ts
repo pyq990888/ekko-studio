@@ -182,6 +182,15 @@ function isBridgeRunSource(source?: string): boolean {
   return source === 'cli' || source === 'global_agent' || source === 'workflow' || source === 'group_chat'
 }
 
+/** Removed Ekko/coding-agent sessions stay readable but cannot start new runs. */
+function isRemovedRunSource(source?: string): boolean {
+  return source === 'coding_agent' || source === 'builtin_agent'
+}
+
+function removedRunError(): Error {
+  return new Error('This session belongs to a removed runtime and is read-only')
+}
+
 function mobileLocationRunInstruction(sessionId: string | undefined, source: string | undefined): string {
   if (!sessionId || source === 'workflow' || source === 'group_chat') return ''
   return [
@@ -914,8 +923,17 @@ export class ChatRunSocket {
         data.category_id = resolveSessionCategoryId(data.category_id)
       }
       if (data.session_id) {
-        const state = getOrCreateSession(this.sessionMap, data.session_id)
         const source = resolveRunSource(data.source, data.session_id)
+        if (isRemovedRunSource(source)) {
+          socket.emit('run.failed', {
+            event: 'run.failed',
+            session_id: data.session_id,
+            queue_id: data.queue_id,
+            error: removedRunError().message,
+          })
+          return
+        }
+        const state = getOrCreateSession(this.sessionMap, data.session_id)
         const command = parseSessionCommand(data.input)
         if (command && (isBridgeRunSource(source) || command.name === 'branch')) {
           try {
@@ -1418,6 +1436,7 @@ export class ChatRunSocket {
     pushTargetId?: string,
   ) {
     const source = resolveRunSource(data.source, data.session_id)
+    if (isRemovedRunSource(source)) throw removedRunError()
     const surface = data.session_source || source
     if (data.session_id) getOrCreateSession(this.sessionMap, data.session_id).pushTargetId = pushTargetId
     if (data.session_id) {
@@ -2302,6 +2321,7 @@ export class ChatRunSocket {
     if (!sessionId) throw new Error('session_id is required')
     const profile = options.profile || data.profile || getSession(sessionId)?.profile || getActiveProfileName() || 'default'
     const source = resolveRunSource(data.source, sessionId)
+    if (isRemovedRunSource(source)) throw removedRunError()
     const pushTargetId = options.pushRoot ? getRunPushTarget(options.pushRoot)?.id : undefined
     const state = getOrCreateSession(this.sessionMap, sessionId)
     state.events = []
