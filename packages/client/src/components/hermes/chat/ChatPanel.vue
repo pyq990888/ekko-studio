@@ -876,11 +876,10 @@ let restoringNewChatForm = false;
 function persistNewChatForm() {
   if (restoringNewChatForm) return;
   saveNewChatFormPreferences(getStoredUserId(), {
-    agent: "hermes", mode: "scoped", profile: newChatProfile.value,
+    profile: newChatProfile.value,
     provider: newChatProvider.value, model: newChatModel.value, customModel: newChatCustomModel.value,
-    apiMode: "chat_completions", reasoningEffort: newChatReasoningEffort.value,
+    reasoningEffort: newChatReasoningEffort.value,
     workspace: newChatWorkspace.value, categoryId: newChatCategoryId.value,
-    baseUrl: "", apiKey: "",
   });
 }
 

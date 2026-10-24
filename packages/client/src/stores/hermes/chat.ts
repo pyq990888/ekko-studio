@@ -7,7 +7,6 @@ import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSe
 import { archiveSession as archiveSessionApi, deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, fetchWorkspaceRunChangeFile, setSessionModel, setSessionPushEnabled as persistSessionPushEnabled, setSessionReasoningEffort as persistSessionReasoningEffort, type HermesMessage, type SessionSummary, type WorkspaceRunChangeFileDetail, type WorkspaceRunChangeSummary } from '@/api/studio/sessions'
 import { getActiveProfileName } from '@/api/client'
 import { onAuthInvalidated } from '@/api/auth-invalidation'
-import type { ChatCodingAgentId } from '@/api/coding-agents'
 import { getDownloadUrl } from '@/api/studio/download'
 import type { ProviderApiMode } from '@/api/studio/provider-api-mode'
 import { defineStore } from 'pinia'
@@ -36,7 +35,7 @@ export const LIVE_CHAT_MESSAGE_PAGE_SIZE = 150
 export const LIVE_CHAT_MAX_LOADED_MESSAGES = 300
 const LEGACY_WORKSPACE_RUN_CHANGE_MESSAGE_PREFIX = 'workspace-run-change:'
 /** Legacy union retained only for persisted session fields; active new chats use Hermes. */
-type ChatAgentId = 'hermes' | 'claude' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode' | 'ekko-agent'
+type ChatAgentId = 'hermes' | 'claude' | 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode' | 'ekko-agent'
 
 function moaReferenceLabel(evt: RunEvent): string {
   const label = typeof evt.label === 'string' && evt.label.trim()
@@ -444,7 +443,7 @@ export interface Session {
   agent?: string
   agentSessionId?: string
   agentNativeSessionId?: string
-  codingAgentId?: ChatCodingAgentId
+  codingAgentId?: ChatAgentId
   codingAgentMode?: 'global' | 'scoped'
   agentPreset?: string
   messages: Message[]
@@ -2276,7 +2275,7 @@ export const useChatStore = defineStore('chat', () => {
     source?: 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'workflow' | 'group_chat'
     /** Legacy callers may still pass these; active chat ignores them. */
     agent?: ChatAgentId
-    codingAgentId?: ChatCodingAgentId
+    codingAgentId?: ChatAgentId
     codingAgentMode?: 'global' | 'scoped'
     agentPreset?: string
     workspace?: string | null

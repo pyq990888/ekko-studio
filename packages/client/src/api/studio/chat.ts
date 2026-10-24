@@ -4,7 +4,6 @@ import { io, type Socket } from 'socket.io-client'
 import { disconnectBackgroundStatusObservers } from './background-status'
 import { onAuthInvalidated } from '../auth-invalidation'
 import { getBaseUrlValue, getApiKey } from '../client'
-import type { ChatCodingAgentId } from '../coding-agents'
 import type { ProviderApiMode } from './provider-api-mode'
 
 export type ContentBlock =
@@ -29,14 +28,14 @@ export interface StartRunRequest {
   model_groups?: Array<{ provider: string; models: string[] }>
   queue_id?: string
   /**
-   * Broad request shape retained through Phase 1 for still-present voice/MCU
-   * compatibility code. Active Hermes chat only sends `cli` or `api_server`.
+   * Broad request shape retained for persisted legacy sessions. Active Hermes
+   * chat only sends `cli` or `api_server`.
    */
   source?: 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'workflow' | 'group_chat'
   session_source?: 'global_agent' | 'workflow' | 'group_chat'
-  coding_agent_id?: ChatCodingAgentId
+  coding_agent_id?: string
   agent_preset?: string
-  agent_id?: ChatCodingAgentId
+  agent_id?: string
   mode?: 'scoped' | 'global'
   workspace?: string | null
   category_id?: number | null
