@@ -225,6 +225,28 @@ export interface BridgeContextState {
 export type ChatRunSource = 'api_server' | 'cli' | 'coding_agent' | 'builtin_agent' | 'global_agent' | 'workflow' | 'group_chat'
 export type ChatCodingAgentId = 'claude-code' | 'codex' | 'pi' | 'grok' | 'opencode' | 'dsh' | 'cursor' | 'antigravity' | 'qwen' | 'kimi' | 'codebuddy' | 'qoder' | 'copilot' | 'zcode' | 'ekko-agent'
 
+/** Session sources that remain readable but can no longer start new runs. */
+export const LEGACY_SESSION_SOURCES = ['coding_agent', 'builtin_agent', 'global_agent', 'workflow', 'group_chat'] as const
+export type LegacySessionSource = Extract<ChatRunSource, typeof LEGACY_SESSION_SOURCES[number]>
+const LEGACY_SESSION_SOURCE_SET = new Set<string>(LEGACY_SESSION_SOURCES)
+
+export function isLegacySessionSource(source: unknown): source is LegacySessionSource {
+  return typeof source === 'string' && LEGACY_SESSION_SOURCE_SET.has(source)
+}
+
+export const LEGACY_SESSION_HTTP_STATUS = 410
+
+/** Shared rejection for write attempts on a readable legacy session. */
+export class LegacySessionError extends Error {
+  readonly status = LEGACY_SESSION_HTTP_STATUS
+  readonly code = 'legacy_session_read_only'
+
+  constructor(message = 'This session belongs to a removed runtime and is read-only') {
+    super(message)
+    this.name = 'LegacySessionError'
+  }
+}
+
 export interface BridgeCompressionResult {
   messages: ChatMessage[]
   beforeMessages: number

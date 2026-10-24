@@ -1,7 +1,7 @@
-// Keep every Agent picker in the same order as single chat.
+// Hermes is the default while legacy options remain selectable for now.
 export const AGENT_OPTIONS = [
-  { label: 'Ekko', value: 'ekko-agent' },
   { label: 'Hermes', value: 'hermes' },
+  { label: 'Ekko', value: 'ekko-agent' },
   { label: 'Claude', value: 'claude-code' },
   { label: 'Codex', value: 'codex' },
   { label: 'Pi', value: 'pi' },
