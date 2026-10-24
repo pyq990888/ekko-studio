@@ -11,5 +11,3 @@ export type PublicSystemInfo = {
   hermes_agent_version: string
   hermes_web_ui_version: string
 }
-
-export type LanEndpointKind = 'web' | 'desktop' | 'custom'
