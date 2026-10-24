@@ -3568,7 +3568,7 @@ export class GroupChatServer {
      * bootstrap and must outlive this module, so only a server created by this
      * instance is closed here (back-compat for standalone construction).
      */
-    async shutdown(): Promise<void> {
+    shutdown(): Promise<void> {
         if (!this.shutdownPromise) {
             this.shutdownPromise = (async () => {
                 try {
