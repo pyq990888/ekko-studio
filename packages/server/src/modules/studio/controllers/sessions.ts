@@ -6,8 +6,6 @@ import { getUsagePricing, saveUsagePricing, validateUsagePricing } from '../serv
 import { getAggregatedUsageStats } from '../services/usage/usage-stats'
 import { getTodayUsageWindow } from '../services/usage/usage-period'
 import { ensureBusinessConsumers } from '../services/webhooks/business-consumers'
-import { authorizeSessionShare, authorizeShareFile } from '../services/session-shares/access'
-import { sessionShareService } from '../services/session-shares/service'
 import { getSessionTaskPlans } from '../services/task-plans'
 import { getSessionTasks, listSessionTaskItems } from '../services/session-tasks'
 import { historySessionSource, isBuiltinEkkoAgent } from '../contracts/history-source'
@@ -22,9 +20,6 @@ import {
   listHermesSessionSummaries,
   listHermesSessionSummaryGroups,
   notifyHermesSessionModelChanged,
-  stopCodingAgentSessionRun,
-  invalidateCodingAgentSessionRuntime,
-  validateCodingAgentModelEffort,
 } from '../public/session-agent-runtime'
 import {
   listSessions as localListSessions,
@@ -750,6 +745,7 @@ export async function search(ctx: any) {
     sources: requestedSessionSources(source),
     profiles: searchableProfiles,
     includeArchived: false,
+    excludeSessionIds: [],
   })
   const knownProfiles = profile ? null : new Set(searchableProfiles)
   ctx.body = {
@@ -768,9 +764,6 @@ export async function get(ctx: any) {
     return
   }
   if (denySessionAccess(ctx, session)) return
-  if (ctx.state?.sessionShare) {
-    delete session.parent_title; delete session.parent_last_message; delete session.parent_last_message_role
-  }
   ctx.body = { session }
 }
 
@@ -804,13 +797,6 @@ export async function getWorkspaceRunChangeFile(ctx: any) {
     ctx.status = 404
     ctx.body = { error: 'Workspace change file not found' }
     return
-  }
-  if (ctx.state?.sessionShare) {
-    const access = ctx.state.sessionShare
-    const change = listWorkspaceRunChangesForSession(ctx.params.id).find(item => item.change_id === ctx.params.changeId)
-    if (!change || pathResolve(change.workspace) !== access.share.workspace_root) { ctx.status = 403; ctx.body = { error: 'share_workspace_changed' }; return }
-    await sessionShareService.authorizePath(access.token, access.actor, 'workspaceRead', file.path)
-    if (file.old_path) await sessionShareService.authorizePath(access.token, access.actor, 'workspaceRead', file.old_path)
   }
   ctx.body = { file }
 }
@@ -849,11 +835,6 @@ async function resolveSessionWorkspacePath(
   if (!session) throw Object.assign(new Error('Session not found'), { code: 'not_found', status: 404 })
   if (denySessionAccess(ctx, session)) throw Object.assign(new Error('Forbidden'), { code: 'forbidden', status: 403, handled: true })
   const workspace = String(session.workspace || '').trim()
-  const shareAccess = ctx.state?.sessionShare
-  if (shareAccess && typeof relativePathValue === 'string' && isAbsoluteWorkspacePath(relativePathValue)) {
-    const fullPath = await authorizeShareFile(shareAccess, ctx.state.sessionShareFileAction || 'workspaceRead', relativePathValue)
-    return { session, workspace, relativePath: relativePathValue, fullPath }
-  }
   if (!workspace) throw Object.assign(new Error('Session workspace not found'), { code: 'workspace_not_found', status: 404 })
   const path = normalizeSessionWorkspaceRelativePath(workspace, session.profile, relativePathValue, options)
   const resolved = await resolveWorkspacePath(workspace, path, {
@@ -862,7 +843,6 @@ async function resolveSessionWorkspacePath(
     allowEmpty: options.allowEmpty,
     missingWorkspaceMessage: 'Session workspace not found',
   })
-  if (shareAccess) await authorizeShareFile(shareAccess, ctx.state.sessionShareFileAction || 'workspaceRead', resolved.fullPath)
   return { session, ...resolved }
 }
 
@@ -891,14 +871,7 @@ export async function listWorkspaceFiles(ctx: any) {
       return
     }
     const entries = await readdir(fullPath, { withFileTypes: true })
-    const visibleEntries = ctx.state?.sessionShare ? (await Promise.all(entries.map(async entry => {
-      const access = ctx.state.sessionShare
-      try {
-        await sessionShareService.authorizePath(access.token, access.actor, 'workspaceRead', pathResolve(fullPath, entry.name))
-        return entry
-      } catch { return null }
-    }))).filter((entry): entry is typeof entries[number] => entry !== null) : entries
-    const mapped = await Promise.all(visibleEntries.map(async entry => {
+    const mapped = await Promise.all(entries.map(async entry => {
       const entryFullPath = pathResolve(fullPath, entry.name)
       const stat = await fsStat(entryFullPath)
       return {
@@ -1153,7 +1126,7 @@ export function listTasks(ctx: any) {
   const allowed = allowedProfileSet(ctx)
   const profiles = listProfileNamesFromDisk().filter(name => (!runScoped || Boolean(profile))
     && (!profile || profile === name) && (!allowed || allowed.has(name)))
-  ctx.body = listSessionTaskItems({ profiles,
+  ctx.body = listSessionTaskItems({ profiles, excludeSessionIds: [],
     search: search.trim(), status, order, offset: Number(offset), limit: Number(limit) })
 }
 
@@ -1349,11 +1322,6 @@ export async function importHermesSession(ctx: any) {
 
 function messageDeletionSession(ctx: any) {
   const session = localGetSession(ctx.params.id)
-  if (ctx.state?.sessionShare) {
-    ctx.status = 403
-    ctx.body = { error: 'Shared sessions do not allow message deletion' }
-    return null
-  }
   if (denySessionAccess(ctx, session)) return null
   if (!session || (requestedProfile(ctx) && requestedProfile(ctx) !== session.profile)) {
     ctx.status = 404
@@ -1408,7 +1376,6 @@ export async function remove(ctx: any) {
   if (denySessionAccess(ctx, existing)) return
   const hermesProfile = requestedProfile(ctx) || existing?.profile || getActiveProfileName()
   const providerAgentSession = isProviderAgentSession(existing)
-  if (providerAgentSession) stopCodingAgentSessionRun(sessionId, { reportClosed: false })
   const hermes = providerAgentSession
     ? { attempted: false, deleted: false, profile: hermesProfile }
     : await deleteHermesSessionIfPresent(sessionId, hermesProfile)
@@ -1479,7 +1446,6 @@ export async function batchRemove(ctx: any) {
     }
 
     const providerAgentSession = isProviderAgentSession(existing)
-    if (providerAgentSession) stopCodingAgentSessionRun(id, { reportClosed: false })
     const hermes = providerAgentSession
       ? { attempted: false, deleted: false, profile: targetProfile || 'default' }
       : await deleteHermesSessionIfPresent(id, targetProfile)
@@ -1657,7 +1623,6 @@ export async function setWorkspace(ctx: any) {
   const id = ctx.params.id
   const existing = getSession(id)
   if (denySessionAccess(ctx, existing)) return
-  if (ctx.state?.sessionShare) sessionShareService.authorizeWorkspaceSwitch(ctx.state.sessionShare.token, ctx.state.sessionShare.actor, workspace)
   if (!existing) {
     createSession({ id, profile: requestedProfile(ctx) || 'default', title: '' })
   }
@@ -1736,9 +1701,7 @@ export async function setModel(ctx: any) {
   if (!existing) {
     createSession({ id, profile, title: '', model: cleanModel, provider: cleanProvider, api_mode: cleanApiMode || '', reasoning_effort: '', workspace })
   }
-  const updates: Record<string, string> = { model: cleanModel, provider: cleanProvider }
-  // A model-only share grant must never overwrite a concurrent reasoning update.
-  if (!ctx.state?.sessionShare) updates.reasoning_effort = ''
+  const updates: Record<string, string> = { model: cleanModel, provider: cleanProvider, reasoning_effort: '' }
   if (cleanApiMode) updates.api_mode = cleanApiMode
   else if (providerAgentSession && existing && existing.provider !== cleanProvider) updates.api_mode = ''
   if (!providerAgentSession && existing && !existing.workspace && workspace) updates.workspace = workspace
@@ -1749,7 +1712,6 @@ export async function setModel(ctx: any) {
   ) {
     updates.agent_native_session_id = ''
   }
-  if (ctx.state?.sessionShare) authorizeSessionShare(ctx.state.sessionShare, 'switchModel', id)
   updateSession(id, updates as any)
   getChatRunServer()?.emitSessionSettingsUpdated(id, {
     model: cleanModel,
@@ -1773,7 +1735,7 @@ export async function setReasoningEffort(ctx: any) {
   }
   if (denySessionAccess(ctx, existing)) return
 
-  const body = (ctx.request.body || {}) as { reasoningEffort?: unknown; reasoning_effort?: unknown; model?: unknown }
+  const body = (ctx.request.body || {}) as { reasoningEffort?: unknown; reasoning_effort?: unknown }
   const rawEffort = body.reasoningEffort ?? body.reasoning_effort
   if (typeof rawEffort !== 'string') {
     ctx.status = 400
@@ -1787,19 +1749,8 @@ export async function setReasoningEffort(ctx: any) {
     return
   }
 
-  if (body.model !== undefined) {
-    if (typeof body.model !== 'string' || !body.model.trim() || existing.agent_mode !== 'global'
-      || !['cursor', 'antigravity'].includes(existing.agent)) {
-      ctx.status = 400
-      ctx.body = { error: 'Native reasoning variants require a global Cursor or Antigravity session' }
-      return
-    }
-    await validateCodingAgentModelEffort(existing.agent, existing.model, body.model.trim(), reasoningEffort)
-  }
-  const updates = { reasoning_effort: reasoningEffort,
-    ...(typeof body.model === 'string' ? { model: body.model.trim() } : {}) }
+  const updates = { reasoning_effort: reasoningEffort }
   localUpdateSession(id, updates)
-  if (existing.agent === 'grok') invalidateCodingAgentSessionRuntime(id)
   getChatRunServer()?.emitSessionSettingsUpdated(id, updates)
   ctx.body = { ok: true, ...updates }
 }
@@ -2165,14 +2116,6 @@ export async function exportSession(ctx: any) {
   }
   if (denySessionAccess(ctx, session)) return
 
-  if (ctx.state?.sessionShare) {
-    delete session.parent_title; delete session.parent_last_message; delete session.parent_last_message_role
-    if (mode === 'compressed') {
-      const access = ctx.state.sessionShare
-      sessionShareService.authorize(access.token, access.actor, 'input', session.id)
-    }
-  }
-
   const ext = (ctx.query.ext as string) || (mode === 'compressed' ? 'txt' : 'json')
   const title = session.title || 'session'
   const safeName = title.replace(/[^a-zA-Z0-9一-鿿_-]/g, '_').slice(0, 50)
@@ -2265,9 +2208,9 @@ export async function getConversationMessagesPaginated(ctx: any) {
       title: session.title,
       parent_session_id: (session as any).parent_session_id,
       fork_point_message_id: (session as any).fork_point_message_id,
-      parent_title: ctx.state?.sessionShare ? undefined : (session as any).parent_title,
-      parent_last_message: ctx.state?.sessionShare ? undefined : (session as any).parent_last_message,
-      parent_last_message_role: ctx.state?.sessionShare ? undefined : (session as any).parent_last_message_role,
+      parent_title: (session as any).parent_title,
+      parent_last_message: (session as any).parent_last_message,
+      parent_last_message_role: (session as any).parent_last_message_role,
       started_at: session.started_at,
       ended_at: session.ended_at,
       last_active: session.last_active,
