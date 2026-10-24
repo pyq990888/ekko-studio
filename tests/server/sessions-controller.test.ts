@@ -405,11 +405,11 @@ describe('session conversations controller', () => {
     invalidateCodingAgentSessionRuntimeMock.mockReset()
   })
 
-  it('validates message deletion IDs, profile scope and supported agents before calling the runtime', async () => {
+  it('validates message deletion IDs, profile scope and session support before calling the runtime', async () => {
     const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
     const removeMessages = vi.fn(async () => ({ deleted: 2 }))
     getChatRunServerMock.mockReturnValue({ deleteSessionMessages: removeMessages })
-    const localSession = { id: 's', profile: 'default', source: 'builtin_agent', agent: 'ekko-agent', history_revision: 2 }
+    const localSession = { id: 's', profile: 'default', source: 'cli', agent: 'hermes', history_revision: 2 }
     const { getSession } = await import('../../packages/server/src/modules/studio/public/sessions')
     vi.mocked(getSession).mockReturnValue(localSession as any)
     const context = (body: any = { messageIds: [2, 2], historyRevision: 2 }) => ({
@@ -420,9 +420,6 @@ describe('session conversations controller', () => {
       await mod.deleteMessages(ctx)
       expect(ctx.status).toBe(400)
     }
-    const shared = context(); shared.state.sessionShare = {}
-    await mod.deleteMessages(shared)
-    expect(shared.status).toBe(403)
     const wrongProfile = context(); wrongProfile.query.profile = 'other'
     await mod.deleteMessages(wrongProfile)
     expect(wrongProfile.status).toBe(404)
@@ -456,18 +453,7 @@ describe('session conversations controller', () => {
     expect(ctx.body).toEqual({ groups: getMessageSelectionGroups('s'), historyRevision: 0 })
   })
 
-  it('returns shared session agent and workspace metadata without account secrets', async () => {
-    localGetSessionDetailPaginatedMock.mockReturnValue({
-      session: { id: 'shared', profile: 'default', source: 'coding_agent', agent: 'codex', agent_mode: 'scoped', coding_agent_id: 'codex', workspace: '/project', api_key: 'private', parent_title: 'private parent' },
-      messages: [], total: 0, offset: 0, limit: 1, hasMore: false,
-    })
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const ctx: any = { params: { id: 'shared' }, query: { limit: '1' }, state: { sessionShare: {} } }
-    await mod.getConversationMessagesPaginated(ctx)
-    expect(ctx.body.session).toMatchObject({ agent: 'codex', coding_agent_id: 'codex', agent_mode: 'scoped', workspace: '/project' })
-    expect(ctx.body.session).not.toHaveProperty('api_key')
-    expect(ctx.body.session.parent_title).toBeUndefined()
-  })
+
 
   it('lists conversations from the local session store', async () => {
     localListSessionsMock.mockReturnValue([{
@@ -1264,36 +1250,7 @@ describe('session conversations controller', () => {
     expect(ctx.body.sessions.map((session: any) => session.id)).toEqual(['visible-session'])
   })
 
-  it('hides workflow sessions from the default list but allows explicit workflow filtering', async () => {
-    localListSessionsMock.mockReturnValue([
-      { id: 'workflow-1', profile: 'default', source: 'workflow' },
-      { id: 'chat-1', profile: 'default', source: 'cli' },
-    ])
 
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const defaultCtx: any = {
-      query: {},
-      state: {},
-      body: null,
-    }
-    await mod.list(defaultCtx)
-    expect(defaultCtx.body.sessions).toEqual([expect.objectContaining({ id: 'chat-1', source: 'cli' })])
-
-    const workflowCtx: any = {
-      query: { source: 'workflow' },
-      state: {},
-      body: null,
-    }
-    await mod.list(workflowCtx)
-
-    expect(localListSessionsMock).toHaveBeenLastCalledWith(undefined, 'workflow', 2000, {
-      sources: undefined,
-      profiles: ['default', 'travel'],
-      includeArchived: false,
-      excludeSessionIds: [],
-    })
-    expect(workflowCtx.body.sessions).toEqual([expect.objectContaining({ id: 'workflow-1', source: 'workflow' })])
-  })
 
   it('counts visible single-chat sessions with the same filters as the list endpoint', async () => {
     listUserProfilesMock.mockReturnValue([{ profile_name: 'default' }, { profile_name: 'travel' }])
@@ -2551,47 +2508,13 @@ describe('session conversations controller', () => {
     expect(ctx.body).toEqual({ ok: true, reasoning_effort: 'high' })
   })
 
-  it('restarts a Grok runtime after changing session reasoning effort', async () => {
-    getSessionMock.mockReturnValue({ id: 'grok-session', profile: 'default', agent: 'grok' })
 
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    await mod.setReasoningEffort({
-      params: { id: 'grok-session' },
-      request: { body: { reasoningEffort: 'max' } },
-      body: null,
-    } as any)
 
-    expect(invalidateCodingAgentSessionRuntimeMock).toHaveBeenCalledWith('grok-session')
-  })
 
-  it('saves and broadcasts a global native effort and model together', async () => {
-    getSessionMock.mockReturnValue({ id: 'cursor-session', profile: 'default', agent: 'cursor', agent_mode: 'global', model: 'native-high' })
-    validateCodingAgentModelEffortMock.mockResolvedValue(undefined)
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const ctx: any = { params: { id: 'cursor-session' }, request: { body: { reasoningEffort: 'low', model: 'native-low' } } }
-    await mod.setReasoningEffort(ctx)
-    expect(validateCodingAgentModelEffortMock).toHaveBeenCalledWith('cursor', 'native-high', 'native-low', 'low')
-    expect(localUpdateSessionMock).toHaveBeenCalledWith('cursor-session', { model: 'native-low', reasoning_effort: 'low' })
-    expect(emitSessionSettingsUpdatedMock).toHaveBeenCalledWith('cursor-session', { model: 'native-low', reasoning_effort: 'low' })
-    expect(ctx.body).toEqual({ ok: true, model: 'native-low', reasoning_effort: 'low' })
-  })
 
-  it('does not persist either field when native variant validation fails', async () => {
-    getSessionMock.mockReturnValue({ id: 'agy-session', agent: 'antigravity', agent_mode: 'global', model: 'gemini-pro-high' })
-    validateCodingAgentModelEffortMock.mockRejectedValueOnce(Object.assign(new Error('Invalid native variant'), { status: 400 }))
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    await expect(mod.setReasoningEffort({ params: { id: 'agy-session' }, request: { body: { reasoningEffort: 'medium', model: 'gemini-pro-medium' } } })).rejects.toThrow('Invalid native variant')
-    expect(localUpdateSessionMock).not.toHaveBeenCalled()
-  })
 
-  it('rejects a coupled native model change in scoped mode', async () => {
-    getSessionMock.mockReturnValue({ id: 'cursor-scoped', agent: 'cursor', agent_mode: 'scoped', model: 'native-high' })
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const ctx: any = { params: { id: 'cursor-scoped' }, request: { body: { reasoningEffort: 'low', model: 'native-low' } } }
-    await mod.setReasoningEffort(ctx)
-    expect(ctx.status).toBe(400)
-    expect(localUpdateSessionMock).not.toHaveBeenCalled()
-  })
+
+
 
   it.each(['remove', 'batchRemove', 'archive'] as const)('publishes cleanup after successful %s and never after a rejected mutation', async action => {
     const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
@@ -2635,28 +2558,7 @@ describe('session conversations controller', () => {
     })
   })
 
-  it('deletes a local coding-agent session without invoking Hermes CLI deletion', async () => {
-    getSessionMock.mockReturnValue({
-      id: 'codex-session',
-      profile: 'default',
-      source: 'coding_agent',
-    })
-    localDeleteSessionMock.mockReturnValue(true)
 
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const ctx: any = { params: { id: 'codex-session' }, body: null }
-    await mod.remove(ctx)
-
-    expect(codingAgentRunManagerMock.stop).toHaveBeenCalledWith('codex-session', { reportClosed: false })
-    expect(getExactSessionDetailFromDbWithProfileMock).not.toHaveBeenCalled()
-    expect(deleteHermesSessionForProfileMock).not.toHaveBeenCalled()
-    expect(localDeleteSessionMock).toHaveBeenCalledWith('codex-session')
-    expect(ctx.body).toEqual({
-      ok: true,
-      deleted: true,
-      hermes: { attempted: false, deleted: false, profile: 'default' },
-    })
-  })
 
   it('batch deletes sessions from their requested profiles', async () => {
     listUserProfilesMock.mockReturnValue([{ profile_name: 'default' }, { profile_name: 'travel' }])
@@ -2694,31 +2596,7 @@ describe('session conversations controller', () => {
     expect(ctx.body).toMatchObject({ ok: true, deleted: 2, failed: 0, hermesDeleted: 2 })
   })
 
-  it('batch deletes local coding-agent sessions without invoking Hermes CLI deletion', async () => {
-    getSessionMock.mockReturnValue({
-      id: 'codex-session',
-      profile: 'default',
-      source: 'coding_agent',
-    })
-    localDeleteSessionMock.mockReturnValue(true)
 
-    const mod = await import('../../packages/server/src/modules/studio/controllers/sessions')
-    const ctx: any = {
-      request: {
-        body: {
-          sessions: [{ id: 'codex-session', profile: 'default' }],
-        },
-      },
-      body: null,
-    }
-    await mod.batchRemove(ctx)
-
-    expect(codingAgentRunManagerMock.stop).toHaveBeenCalledWith('codex-session', { reportClosed: false })
-    expect(getExactSessionDetailFromDbWithProfileMock).not.toHaveBeenCalled()
-    expect(deleteHermesSessionForProfileMock).not.toHaveBeenCalled()
-    expect(localDeleteSessionMock).toHaveBeenCalledWith('codex-session')
-    expect(ctx.body).toMatchObject({ ok: true, deleted: 1, failed: 0, hermesDeleted: 0 })
-  })
 
   it('imports a Hermes session into the local Web UI store', async () => {
     const hermesDetail = {

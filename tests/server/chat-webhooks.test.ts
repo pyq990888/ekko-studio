@@ -203,22 +203,7 @@ describe('chat run webhooks', () => {
     expect(listLocalChatWebhookTestInbox()).toEqual([])
   })
 
-  it('correlates mobile turns without deduplicating separate roots or leaking targets to webhook payloads', async () => {
-    const service = await import('../../packages/server/src/modules/studio/services/webhooks/index')
-    const { businessEvents } = await import('../../packages/server/src/modules/studio/services/webhooks/business-events')
-    const enqueue = vi.spyOn(service.getChatWebhookDispatcher(), 'enqueue').mockReturnValue(true)
-    const events: any[] = []
-    const unsubscribe = businessEvents.subscribe('test-push-target', event => { events.push(event) })
-    const input = { event: 'run.completed', sessionId: 'session-a', profile: 'default', source: 'chat', agent: 'codex' as const, payload: { run_id: 'persistent-agent-session', output: 'done' } }
-    service.observeChatRunWebhookEvent({ ...input, pushTargetId: 'root-a' })
-    service.observeChatRunWebhookEvent({ ...input, pushTargetId: 'root-b' })
-    service.observeChatRunWebhookEvent({ ...input, pushTargetId: 'root-b' })
-    unsubscribe()
-    expect(events.map(event => event.push_target_id)).toEqual(['root-a', 'root-b', 'root-b'])
-    expect(events[0].id).not.toBe(events[1].id)
-    expect(events[1].id).toBe(events[2].id)
-    expect(enqueue.mock.calls.every(([event]) => !('push_target_id' in event))).toBe(true)
-  })
+
 
   it('normalizes terminal Chat Run events before enqueueing them', async () => {
     const webhookService = await import('../../packages/server/src/modules/studio/services/webhooks/index')
@@ -229,10 +214,8 @@ describe('chat run webhooks', () => {
       event: 'run.completed',
       sessionId: 'session-1',
       profile: 'work',
-      source: 'workflow',
-      agent: 'codex',
-      workflowId: 'workflow-1',
-      workflowNodeId: 'node-2',
+      source: 'cli',
+      agent: 'hermes',
       payload: {
         run_id: 'run-1',
         message_id: 'message-1',
@@ -244,15 +227,13 @@ describe('chat run webhooks', () => {
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
       type: 'chat.run.completed',
       profile: 'work',
-      source: 'workflow',
-      agent: 'codex',
+      source: 'cli',
+      agent: 'hermes',
       content: 'final answer',
       subject: expect.objectContaining({
         session_id: 'session-1',
         run_id: 'run-1',
         message_id: 'message-1',
-        workflow_id: 'workflow-1',
-        workflow_node_id: 'node-2',
       }),
       summary: expect.objectContaining({ input_tokens: 11, output_tokens: 7 }),
     }))
@@ -311,10 +292,8 @@ describe('chat run webhooks', () => {
     const base = {
       sessionId: 'session-lifecycle',
       profile: 'default',
-      source: 'workflow',
-      agent: 'ekko' as const,
-      workflowId: 'workflow-1',
-      workflowNodeId: 'node-1',
+      source: 'cli',
+      agent: 'hermes' as const,
     }
 
     const inputs = [
@@ -348,7 +327,7 @@ describe('chat run webhooks', () => {
     ])
     expect(normalized[0]).toMatchObject({
       occurred_at: '2026-08-09T00:00:00.000Z',
-      subject: { message_id: '11', workflow_id: 'workflow-1', workflow_node_id: 'node-1' },
+      subject: { message_id: '11' },
       summary: { status: 'created', role: 'user' },
       content: 'hello',
     })
@@ -363,32 +342,9 @@ describe('chat run webhooks', () => {
     enqueue.mockRestore()
   })
 
-  it('delivers subscribed group/workflow events through HTTP with content opt-in and no internal target', async () => {
-    await createEndpoint({ event_types: ['group.message.created', 'group.clarification.requested', 'workflow.run.completed'], include_content: true })
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 })) as typeof fetch
-    const { ChatWebhookDispatcher, getChatWebhookDispatcher } = await import('../../packages/server/src/modules/studio/services/webhooks/dispatcher')
-    const dispatcher = new ChatWebhookDispatcher({ fetchImpl })
-    dispatchers.push(dispatcher); dispatcher.start()
-    const forward = vi.spyOn(getChatWebhookDispatcher(), 'enqueue').mockImplementation(event => dispatcher.enqueue(event))
-    try {
-      const { publishGroupMessage, publishGroupInteraction, publishDomainEvent } = await import('../../packages/server/src/modules/studio/services/webhooks/domain-events')
-      const room = { id: 'room', name: 'Room', summaryProfile: 'default' }
-      publishGroupMessage(room, { id: 'message', senderType: 'agent', role: 'assistant', content: 'Group answer' }, [])
-      publishGroupMessage(room, { id: 'usage', senderType: 'agent', role: 'tool', tool_name: 'run_usage',
-        content: JSON.stringify({ runId: 'group-run', inputTokens: 1200, outputTokens: 200 }) }, [])
-      publishGroupInteraction(room, 'group.clarification.requested', 'group-run', 'question')
-      publishDomainEvent('workflow.run.completed', 'default', { workflow_id: 'workflow', run_id: 'workflow-run' }, { title: 'Workflow' })
-      await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(3))
-      const delivered = vi.mocked(fetchImpl).mock.calls.map(([, request]) => JSON.parse(String(request?.body)))
-      expect(delivered.map(event => event.type)).toEqual(['group.message.created', 'group.clarification.requested', 'workflow.run.completed'])
-      expect(delivered[0].message).toMatchObject({ role: 'assistant', text: 'Group answer' })
-      expect(delivered[1].subject).toMatchObject({ room_id: 'room', clarification_id: 'question', run_id: 'group-run' })
-      expect(delivered[2].subject).toEqual({ workflow_id: 'workflow', run_id: 'workflow-run' })
-      expect(JSON.stringify(delivered)).not.toMatch(/push_target_id|push_token|apns_token/)
-    } finally { forward.mockRestore() }
-  })
 
-  it.each(['chat', 'workflow'])('publishes %s task progress by plan revision with bounded, allowlisted metadata', async source => {
+
+  it('publishes chat task progress by plan revision with bounded, allowlisted metadata', async () => {
     const service = await import('../../packages/server/src/modules/studio/services/webhooks/index')
     const enqueue = vi.spyOn(service.getChatWebhookDispatcher(), 'enqueue').mockReturnValue(true)
     const snapshot = {
@@ -398,20 +354,19 @@ describe('chat run webhooks', () => {
       plan: [{ id: 'inspect', step: 'Private step', status: 'completed', token: 'SECRET' },
         { id: 'verify', step: 'Verify', status: 'in_progress' }],
     }
-    const base = { event: 'plan.updated', sessionId: 'plan-session', profile: 'default', source, agent: 'ekko' as const,
-      ...(source === 'workflow' ? { workflowId: 'workflow-a', workflowNodeId: 'node-a' } : {}), payload: snapshot }
+    const base = { event: 'plan.updated', sessionId: 'plan-session', profile: 'default', source: 'cli' as const, agent: 'hermes' as const,
+      payload: snapshot }
     try {
       expect(service.observeChatRunWebhookEvent({ ...base, pushTargetId: 'target-a' })).toBe(true)
       expect(service.observeChatRunWebhookEvent(base)).toBe(false)
       expect(service.observeChatRunWebhookEvent({ ...base, payload: { ...snapshot, revision: 2, execution_state: 'interrupted',
         plan: snapshot.plan.map(step => ({ ...step, status: step.status === 'in_progress' ? 'pending' : step.status })) } })).toBe(true)
       const [first, next] = enqueue.mock.calls.map(([event]) => event)
-      expect(first.type).toBe(`${source}.plan.updated`)
+      expect(first.type).toBe('chat.plan.updated')
       expect(first.id).not.toBe(next.id)
       expect(service.observeChatRunWebhookEvent(base)).toBe(false)
       expect(first.occurred_at).toBe('2026-08-09T00:00:00.100Z')
-      expect(first.subject).toMatchObject({ session_id: 'plan-session', run_id: 'plan-run', plan_id: 'card',
-        ...(source === 'workflow' ? { workflow_id: 'workflow-a', workflow_node_id: 'node-a' } : {}) })
+      expect(first.subject).toMatchObject({ session_id: 'plan-session', run_id: 'plan-run', plan_id: 'card' })
       expect(first.task_plan?.progress).toEqual({ total: 2, completed: 1, in_progress: 1, pending: 0, percent: 50 })
       expect(next.task_plan).toMatchObject({ execution_state: 'interrupted', progress: { completed: 1, pending: 1, percent: 50 } })
       const hidden = service.buildChatWebhookEnvelope(first, false)

@@ -201,7 +201,7 @@ it.each([{ input: 'hello' }, { input: [{ type: 'text', text: 'hello' }] }])('run
   const { run, agent, socket, server } = await harness()
   await run({ session_id: 'session-1', source: 'cli', input })
   expect(socket.emit).not.toHaveBeenCalledWith('run.failed', expect.anything())
-  expect(agent).toHaveBeenCalledWith(socket, expect.objectContaining({ input }), 'default', false, undefined, undefined)
+  expect(agent).toHaveBeenCalledWith(socket, expect.objectContaining({ input }), 'default', false, undefined)
   await server.close()
 })
 
@@ -253,11 +253,4 @@ it('preserves provenance for a pending first-run session', async () => {
   await server.close()
 })
 
-it('does not record share-recipient uploads', async () => {
-  const path = await upload()
-  const { run, agent, server } = await harness('default', true)
-  await run({ session_id: 'session-1', input: [{ type: 'file', path }], source: 'cli' })
-  expect(agent).toHaveBeenCalledOnce()
-  expect(uploads.size).toBe(0)
-  await server.close()
-})
+

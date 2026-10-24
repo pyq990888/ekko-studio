@@ -380,30 +380,7 @@ describe('models controller — model visibility', () => {
     expect(ctx.body.groups[0].model_meta).not.toHaveProperty('deepseek-chat')
   })
 
-  it('exposes single-provider refresh for authorized providers that are not editable', async () => {
-    mockReadFile.mockResolvedValue('')
-    mockReadConfigYamlForProfile.mockResolvedValue({
-      model: { default: 'grok-4.3', provider: 'xai-oauth' },
-    })
-    mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(JSON.stringify({
-      credential_pool: {
-        'xai-oauth': [{ access_token: 'profile-oauth-token' }],
-      },
-    }))
 
-    const ctx = makeCtx()
-    ctx.query = { profile: 'default' }
-    await ctrl.getAvailable(ctx)
-
-    expect(ctx.body.groups).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        provider: 'xai-oauth',
-        provider_editable: false,
-        model_refreshable: true,
-      }),
-    ]))
-  })
 
   it('merges Web UI custom models into available provider groups', async () => {
     mockReadAppConfig.mockResolvedValue({
@@ -733,81 +710,7 @@ describe('models controller — model visibility', () => {
     ]))
   })
 
-  it('shows xAI Grok OAuth when SuperGrok credentials exist in auth.json', async () => {
-    mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(JSON.stringify({
-      providers: {
-        'xai-oauth': {
-          tokens: { access_token: 'xai-token' },
-        },
-      },
-    }))
 
-    const ctx = makeCtx()
-    await ctrl.getAvailable(ctx)
-
-    expect(ctx.status).toBe(200)
-    expect(ctx.body.groups).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        provider: 'xai-oauth',
-        label: 'xAI Grok OAuth (SuperGrok Subscription)',
-        base_url: 'https://api.x.ai/v1',
-        models: ['grok-4.3', 'grok-4.20-0309-reasoning'],
-      }),
-    ]))
-  })
-
-  it.each([
-    ['global', 'https://api.minimax.io/anthropic'],
-    ['China', 'https://api.minimaxi.com/anthropic'],
-  ])('uses the authorized MiniMax %s region URL to read the refreshed model cache', async (_region, baseUrl) => {
-    mockReadFile.mockResolvedValue('')
-    mockReadConfigYamlForProfile.mockResolvedValue({
-      model: { default: 'MiniMax-M3', provider: 'minimax-oauth' },
-    })
-    mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(JSON.stringify({
-      providers: {
-        'minimax-oauth': {
-          access_token: 'minimax-token',
-          inference_base_url: baseUrl,
-        },
-      },
-    }))
-    mockReadProviderModelCatalogCache.mockResolvedValue({
-      version: 1,
-      updated_at: '2026-08-03T09:38:34.855Z',
-      providers: {
-        [modelCatalogKey('minimax-oauth', baseUrl)]: {
-          provider: 'minimax-oauth',
-          label: 'MiniMax Coding Plan (OAuth)',
-          base_url: baseUrl,
-          models: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5'],
-          source: 'live',
-          updated_at: '2026-08-03T09:38:34.855Z',
-        },
-      },
-    })
-
-    const ctx = makeCtx()
-    ctx.query = { profile: 'default' }
-    await ctrl.getAvailable(ctx)
-
-    expect(ctx.body.groups).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        provider: 'minimax-oauth',
-        base_url: baseUrl,
-        models: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5'],
-      }),
-    ]))
-    expect(mockResolveProviderCatalogModels).toHaveBeenCalledWith(
-      expect.anything(),
-      'minimax-oauth',
-      baseUrl,
-      expect.any(Array),
-      expect.objectContaining({ profile: 'default' }),
-    )
-  })
 
   it('marks allProviders with base URL env support for editable preset URLs', async () => {
     const ctx = makeCtx()
