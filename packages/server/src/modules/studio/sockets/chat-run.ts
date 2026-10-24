@@ -2223,11 +2223,7 @@ export class ChatRunSocket {
   private emitPendingInteraction(profile: string, event: string, payload: any) {
     this.emitSessionActivity(profile, event, payload)
     if (event !== 'approval.requested' && event !== 'approval.resolved'
-      && event !== 'clarify.requested' && event !== 'clarify.resolved'
-      && event !== 'location.requested' && event !== 'location.resolved'
-      && event !== 'calendar.requested' && event !== 'calendar.resolved'
-      && event !== 'reminder.requested' && event !== 'reminder.resolved'
-      && event !== 'health.requested' && event !== 'health.resolved') return
+      && event !== 'clarify.requested' && event !== 'clarify.resolved') return
     const sessionId = typeof payload?.session_id === 'string' ? payload.session_id : ''
     const source = sessionId
       ? this.sessionMap.get(sessionId)?.source || getSession(sessionId)?.source
