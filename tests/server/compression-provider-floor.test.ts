@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Real compressor, session store, usage store and snapshot store on an in-memory database;
-// only the summarizer model call, profile config and context length are stubbed.
+// only the Hermes summarizer bridge call, profile config and context length are stubbed.
 const summarizerRun = vi.fn()
+const summarizerDestroy = vi.fn()
 
 describe('compression decisions with the provider usage floor', () => {
   let db: any = null
@@ -10,7 +11,9 @@ describe('compression decisions with the provider usage floor', () => {
   beforeEach(async () => {
     vi.resetModules()
     summarizerRun.mockReset()
-    summarizerRun.mockResolvedValue({ output: { role: 'assistant', content: 'new summary', finishReason: 'stop' } })
+    summarizerDestroy.mockReset()
+    summarizerRun.mockResolvedValue({ status: 'completed', result: { final_response: 'new summary' } })
+    summarizerDestroy.mockResolvedValue(undefined)
     const { DatabaseSync } = await import('node:sqlite')
     db = new DatabaseSync(':memory:')
     vi.doMock('../../packages/server/src/modules/studio/infrastructure/database/index', () => ({
@@ -26,12 +29,18 @@ describe('compression decisions with the provider usage floor', () => {
     }))
     vi.doMock('../../packages/server/src/modules/studio/public/chat-agent-runtime', async importOriginal => ({
       ...(await importOriginal<object>()),
-      resolveChatEkkoProviderRuntimeConfig: vi.fn(async () => ({ provider: 'p', baseUrl: 'http://x', apiKey: 'k', apiMode: 'chat_completions' })),
-      resolveChatEkkoModelProviderConfigs: vi.fn(() => ({ providerConfig: { id: 'p' } })),
-      createChatEkkoModelClient: vi.fn(() => ({})),
-      createChatEkkoAuthorizedProviderFetch: vi.fn(() => vi.fn()),
-      getChatEkkoAgent: vi.fn(() => ({ runIsolated: (_options: unknown, input: unknown) => summarizerRun(input) })),
+      createPrimaryAgentBridge: vi.fn(() => ({
+        request: summarizerRun,
+        destroy: summarizerDestroy,
+      })),
     }))
+    const { configureChatAgentRuntime } = await import('../../packages/server/src/modules/studio/public/chat-agent-runtime')
+    configureChatAgentRuntime({
+      projectBrowserHistory: messages => messages,
+      createPrimaryAgentBridge: () => ({ request: summarizerRun, destroy: summarizerDestroy }),
+      getPrimaryAgentBridgeManager: () => undefined,
+      redactPrimaryAgentBridgeError: error => error,
+    })
     const { initAllHermesTables } = await import('../../packages/server/src/modules/studio/infrastructure/database/schemas')
     initAllHermesTables()
   })
