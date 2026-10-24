@@ -10,7 +10,9 @@ describe('thinking timer watcher', () => {
   const source = readFileSync('packages/client/src/components/hermes/chat/MessageList.vue', 'utf8')
 
   it('restarts when the session or its reported start changes, not only when the indicator flips', () => {
-    const watched = source.slice(source.indexOf('watch(\n  // Switching between two sessions'))
+    const anchor = source.indexOf('// Switching between two sessions')
+    expect(anchor).toBeGreaterThan(-1)
+    const watched = source.slice(anchor)
     expect(watched).toContain('isRunIndicatorActive.value')
     expect(watched).toContain('chatStore.activeSessionId')
     expect(watched).toContain('chatStore.runStartedAt.get(chatStore.activeSessionId)')

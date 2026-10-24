@@ -96,7 +96,7 @@ describe('usage cache visualizations', () => {
   it('renders agent breakdown as input/output/cache stacked segments', () => {
     const wrapper = mount(AgentBreakdown)
 
-    expect(wrapper.text()).toContain('Hermes')
+    expect(wrapper.find('.agent-name').text()).toBe('usage.agents.hermes')
     expect(wrapper.find('.agent-details').text()).toContain('usage.cacheWrite 10')
     expect(wrapper.find('.agent-details').text()).toContain('usage.sessions 2')
     expect(wrapper.find('.agent-swatch').attributes('style')).toContain('background: rgb(99, 179, 237)')
