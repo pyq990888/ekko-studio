@@ -42,7 +42,7 @@ type ChatContentMode = 'chat' | 'models'
 const contentMode = computed<ChatContentMode>(() =>
   route.name === 'hermes.models' ? 'models' : 'chat',
 )
-const productTitle = 'Ekko Studio'
+const productTitle = 'Hermes WebUI'
 const initializing = ref(true)
 const routeLoading = ref(false)
 let routeLoadSequence = 0
