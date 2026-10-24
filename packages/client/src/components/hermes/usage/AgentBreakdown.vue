@@ -2,17 +2,15 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUsageStore } from '@/stores/hermes/usage'
-import { agentMetadata } from '@/utils/agent-catalog'
 import { formatUsageTokens } from '@/utils/usage-display'
 
 const { t, locale } = useI18n()
 const usageStore = useUsageStore()
-const maxAgentTokens = computed(() => Math.max(...usageStore.agentUsage.map(agent => agent.visualTokens), 1))
+const hermesUsage = computed(() => usageStore.agentUsage.filter(agent => agent.agent === 'hermes'))
+const maxAgentTokens = computed(() => Math.max(...hermesUsage.value.map(agent => agent.visualTokens), 1))
 
 function agentName(agent: string): string {
-  if (agent === 'unknown') return t('usage.agents.unknown')
-  const id = agent === 'claude_code' ? 'claude-code' : agent === 'ekko_agent' ? 'ekko-agent' : agent
-  return agentMetadata(id)?.name || agent
+  return agent === 'hermes' ? t('usage.agents.hermes') : t('usage.agents.unknown')
 }
 function formatTokens(n: number): string { return formatUsageTokens(n, locale?.value) }
 
@@ -35,7 +33,7 @@ function cacheHitRate(agent: { inputTokens: number; cacheTokens: number }): stri
     </div>
 
     <div class="agent-list">
-      <div v-for="agent in usageStore.agentUsage" :key="agent.agent" class="agent-row" :data-agent="agent.agent">
+      <div v-for="agent in hermesUsage" :key="agent.agent" class="agent-row" :data-agent="agent.agent">
         <span class="agent-swatch" :style="{ background: agent.color }" />
         <span class="agent-name" :title="agentName(agent.agent)">{{ agentName(agent.agent) }}</span>
         <div class="agent-bar-wrap">
@@ -60,7 +58,7 @@ function cacheHitRate(agent: { inputTokens: number; cacheTokens: number }): stri
           <span>{{ t('usage.sessions') }} {{ agent.sessions }}</span>
         </div>
       </div>
-      <p v-if="!usageStore.agentUsage.length" class="agent-note">{{ t('usage.noData') }}</p>
+      <p v-if="!hermesUsage.length" class="agent-note">{{ t('usage.noData') }}</p>
     </div>
   </section>
 </template>

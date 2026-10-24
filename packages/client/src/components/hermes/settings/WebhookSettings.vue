@@ -66,23 +66,11 @@ const DEFAULT_EVENT_TYPES: ChatWebhookEventType[] = [
   'chat.run.failed',
   'chat.task.created',
   'chat.task.completed',
-  'group.message.created',
-  'group.run.failed',
-  'group.approval.requested',
-  'group.approval.resolved',
-  'group.clarification.requested',
-  'group.clarification.resolved',
-  'workflow.run.completed',
-  'workflow.run.failed',
   'chat.run.updated',
-  'group.run.updated',
-  'workflow.run.updated',
   'chat.plan.updated',
-  'group.plan.updated',
-  'workflow.plan.updated',
 ]
 
-const EVENT_LABEL_KEYS: Record<ChatWebhookEventType, string> = {
+const EVENT_LABEL_KEYS: Partial<Record<ChatWebhookEventType, string>> = {
   'chat.message.created': 'messageCreated',
   'chat.run.queued': 'runQueued',
   'chat.run.started': 'runStarted',
@@ -97,20 +85,8 @@ const EVENT_LABEL_KEYS: Record<ChatWebhookEventType, string> = {
   'chat.run.failed': 'failed',
   'chat.task.created': 'taskCreated',
   'chat.task.completed': 'taskCompleted',
-  'group.message.created': 'groupMessageCreated',
-  'group.run.failed': 'failed',
-  'group.approval.requested': 'approvalRequested',
-  'group.approval.resolved': 'approvalResolved',
-  'group.clarification.requested': 'clarificationRequested',
-  'group.clarification.resolved': 'clarificationResolved',
-  'workflow.run.completed': 'completed',
-  'workflow.run.failed': 'failed',
   'chat.run.updated': 'runUpdated',
-  'group.run.updated': 'runUpdated',
-  'workflow.run.updated': 'runUpdated',
   'chat.plan.updated': 'planUpdated',
-  'group.plan.updated': 'planUpdated',
-  'workflow.plan.updated': 'planUpdated',
 }
 
 const form = reactive({
@@ -133,8 +109,8 @@ const eventOptions = computed(() => DEFAULT_EVENT_TYPES.map(value => ({
 })))
 
 function eventLabel(event: ChatWebhookEventType): string {
-  const label = t(`settings.webhooks.events.${EVENT_LABEL_KEYS[event]}`)
-  return event.startsWith('chat.') ? label : `${event} · ${label}`
+  const key = EVENT_LABEL_KEYS[event]
+  return key ? t(`settings.webhooks.events.${key}`) : event
 }
 
 const profileOptions = computed(() => profilesStore.profiles.map(profile => ({
