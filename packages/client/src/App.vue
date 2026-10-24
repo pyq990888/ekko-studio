@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ensureRemoteBrowserRelay, stopRemoteBrowserRelay } from '@/composables/useRemoteBrowserRelay'
 import { deploymentUrl } from '@/utils/deployment-url'
 import {
   computed,
@@ -53,14 +52,6 @@ const HermesConfigSidebar = defineAsyncComponent(
   async () =>
     (await import("@/components/layout/HermesConfigSidebar.vue")).default,
 );
-const EkkoConfigSidebar = defineAsyncComponent(
-  async () =>
-    (await import("@/components/layout/EkkoConfigSidebar.vue")).default,
-);
-const CodingAgentConfigSidebar = defineAsyncComponent(
-  async () =>
-    (await import("@/components/layout/CodingAgentConfigSidebar.vue")).default,
-);
 const DesktopTitleBar = defineAsyncComponent(
   async () => (await import("@/components/layout/DesktopTitleBar.vue")).default,
 );
@@ -77,9 +68,6 @@ const ProviderConfigurationPrompt = defineAsyncComponent(
     (await import("@/components/hermes/models/ProviderConfigurationPrompt.vue"))
       .default,
 );
-const WebPet = defineAsyncComponent(
-  async () => (await import("@/components/hermes/pets/WebPet.vue")).default,
-);
 const GlobalPendingActions = defineAsyncComponent(
   async () =>
     (await import("@/components/layout/GlobalPendingActions.vue")).default,
@@ -87,12 +75,6 @@ const GlobalPendingActions = defineAsyncComponent(
 const RuntimeRestartPrompt = defineAsyncComponent(
   async () =>
     (await import("@/components/layout/RuntimeRestartPrompt.vue")).default,
-);
-const ComputerUsePermissionPrompt = defineAsyncComponent(
-  async () => (await import('@/components/ekko/ComputerUsePermissionPrompt.vue')).default,
-);
-const StudioAnnouncementPrompt = defineAsyncComponent(
-  async () => (await import('@/components/layout/StudioAnnouncementPrompt.vue')).default,
 );
 
 const {
@@ -107,7 +89,6 @@ const naiveLocale = computed(() => naiveLocaleFor(locale.value));
 const naiveRtl = computed(() => naiveRtlFor(locale.value));
 const appStore = useAppStore();
 const profilesStore = useProfilesStore();
-watch(() => profilesStore.activeProfileName, async () => { await stopRemoteBrowserRelay(); await ensureRemoteBrowserRelay() });
 const route = useRoute();
 const { sessionSearchOpen } = useSessionSearch();
 
@@ -117,7 +98,6 @@ const themeOverrides = computed(() =>
 const naiveTheme = computed(() => (isDark.value ? darkTheme : null));
 
 const isLoginPage = computed(() => route.name === "login");
-watch(isLoginPage, login => { void (login ? stopRemoteBrowserRelay() : ensureRemoteBrowserRelay()) }, { immediate: true });
 watchServerTtsSettingsHydration({
   isLoginPage: () => isLoginPage.value,
   activeProfileName: () => profilesStore.activeProfileName,
@@ -125,7 +105,6 @@ watchServerTtsSettingsHydration({
 const isStandaloneChatPage = computed(
   () => route.meta?.standaloneChat === true,
 );
-const isInviteOnlyPage = computed(() => route.meta?.inviteOnly === true);
 const wideViewportQuery = window.matchMedia('(min-width: 769px)');
 const isWideViewport = ref(wideViewportQuery.matches);
 const viewportWidth = ref(window.innerWidth);
@@ -136,7 +115,7 @@ function handleViewportResize() {
   viewportWidth.value = window.innerWidth;
 }
 const hasNavigationRail = computed(() =>
-  !isLoginPage.value && !isStandaloneChatPage.value && route.name !== 'desktop.pet',
+  !isLoginPage.value && !isStandaloneChatPage.value,
 );
 const showNavigationRail = computed(() => isWideViewport.value && hasNavigationRail.value);
 provide(navigationRailKey, hasNavigationRail);
@@ -147,7 +126,7 @@ provide(mobileNavigationKey, {
   target: computed(() => !isWideViewport.value && hasNavigationRail.value ? mobileSidebarHost.value : null),
 });
 const hasMobileContextSidebar = computed(() =>
-  !['hermes.connections', 'hermes.agentManager', 'hermes.models', 'hermes.usage', 'hermes.apiRelay'].includes(String(route.name)),
+  !['hermes.agentManager', 'hermes.models', 'hermes.usage'].includes(String(route.name)),
 );
 watch([hasNavigationRail, isWideViewport], () => { mobileNavigationOpen.value = false; });
 watch(sessionSearchOpen, (open) => { if (open) mobileNavigationOpen.value = false; });
@@ -163,40 +142,25 @@ const usesPageSidebar = computed(() =>
   [
     "hermes.chat",
     "hermes.session",
-    "hermes.connections",
     "hermes.agentManager",
     "hermes.models",
     "hermes.usage",
-    "hermes.apiRelay",
     "hermes.history",
     "hermes.historySession",
-    "hermes.globalAgent",
-    "hermes.globalAgentSession",
-    "hermes.groupChat",
-    "hermes.groupChatRoom",
-    "hermes.workflow",
   ].includes(route.name as string),
 );
 const usesHermesConfigSidebar = computed(
   () => route.meta?.hermesConfig === true,
-);
-const usesEkkoConfigSidebar = computed(
-  () => route.meta?.ekkoConfig === true,
-);
-const usesCodingAgentConfigSidebar = computed(
-  () => route.meta?.codingAgentConfig === true,
 );
 const showAppSidebar = computed(
   () =>
     !isLoginPage.value &&
     !isStandaloneChatPage.value &&
     !usesPageSidebar.value &&
-    !usesHermesConfigSidebar.value &&
-    !usesEkkoConfigSidebar.value &&
-    !usesCodingAgentConfigSidebar.value,
+    !usesHermesConfigSidebar.value,
 );
 const usesShellSidebar = computed(() =>
-  showAppSidebar.value || usesHermesConfigSidebar.value || usesEkkoConfigSidebar.value || usesCodingAgentConfigSidebar.value,
+  showAppSidebar.value || usesHermesConfigSidebar.value,
 );
 const showMobileMenuButton = computed(
   () =>
@@ -204,9 +168,7 @@ const showMobileMenuButton = computed(
     !isStandaloneChatPage.value &&
     (showAppSidebar.value ||
       usesPageSidebar.value ||
-      usesHermesConfigSidebar.value ||
-      usesEkkoConfigSidebar.value ||
-      usesCodingAgentConfigSidebar.value),
+      usesHermesConfigSidebar.value),
 );
 
 const nodeVersionLow = computed(() => {
@@ -232,20 +194,8 @@ const desktopTitleBarLeft = computed(() => {
   if (showAppSidebar.value) return appStore.sidebarCollapsed ? 64 : sidebarLayoutWidth.value;
   if (usesHermesConfigSidebar.value)
     return appStore.sidebarCollapsed ? 64 : sidebarLayoutWidth.value;
-  if (usesEkkoConfigSidebar.value)
-    return appStore.sidebarCollapsed ? 64 : sidebarLayoutWidth.value;
-  if (usesCodingAgentConfigSidebar.value)
-    return appStore.sidebarCollapsed ? 64 : sidebarLayoutWidth.value;
   return appStore.pageSidebarExpanded ? sidebarLayoutWidth.value : 10;
 });
-const isDesktopPetRoute = computed(() => route.name === "desktop.pet");
-const showWebPet = computed(
-  () =>
-    !isLoginPage.value &&
-    !isStandaloneChatPage.value &&
-    !isDesktopShell.value &&
-    !isDesktopPetRoute.value,
-);
 const desktopPlatformClass = computed(() =>
   desktopPlatform.value ? `desktop-platform-${desktopPlatform.value}` : "",
 );
@@ -257,9 +207,9 @@ function handleMobileMenuClick() {
 }
 
 watch(
-  [isLoginPage, isInviteOnlyPage],
-  ([loginPage, inviteOnlyPage]) => {
-    if (loginPage || inviteOnlyPage) {
+  isLoginPage,
+  (loginPage) => {
+    if (loginPage) {
       appStore.stopHealthPolling();
       return;
     }
@@ -274,9 +224,7 @@ watch(
 onMounted(() => {
   window.addEventListener('resize', handleViewportResize);
   wideViewportQuery.addEventListener('change', handleWideViewportChange);
-  if (!isInviteOnlyPage.value) {
-    void syncThemeFromServer().catch(() => undefined);
-  }
+  void syncThemeFromServer().catch(() => undefined);
   const bridge = desktopBridge();
   if (
     !bridge?.isDesktop ||
@@ -316,9 +264,7 @@ useKeyboard();
       <AuthEventListener />
       <NDialogProvider>
         <NNotificationProvider>
-          <router-view v-if="isDesktopPetRoute" />
           <div
-            v-else
             class="app-shell"
             :style="{ '--studio-sidebar-width': `${sidebarLayoutWidth}px` }"
             :class="[
@@ -379,8 +325,6 @@ useKeyboard();
                 :class="{
                   'no-sidebar': isLoginPage || !showAppSidebar,
                   'has-hermes-config-sidebar': usesHermesConfigSidebar,
-                  'has-ekko-config-sidebar': usesEkkoConfigSidebar,
-                  'has-coding-agent-config-sidebar': usesCodingAgentConfigSidebar,
                 }"
               >
                 <button
@@ -399,16 +343,10 @@ useKeyboard();
                 <HermesConfigSidebar
                   v-if="!isLoginPage && usesHermesConfigSidebar"
                 />
-                <EkkoConfigSidebar
-                  v-if="!isLoginPage && usesEkkoConfigSidebar"
-                />
-                <CodingAgentConfigSidebar
-                  v-if="!isLoginPage && usesCodingAgentConfigSidebar"
-                />
                 <main
                   class="app-main"
                   :class="{
-                    'app-main--card': showAppSidebar || usesHermesConfigSidebar || usesEkkoConfigSidebar || usesCodingAgentConfigSidebar,
+                    'app-main--card': showAppSidebar || usesHermesConfigSidebar,
                   }"
                 >
                   <router-view />
@@ -416,29 +354,20 @@ useKeyboard();
               </div>
             </div>
           </div>
-          <WebPet v-if="showWebPet" />
           <SessionSearchModal
-            v-if="
-              !isDesktopPetRoute && !isStandaloneChatPage && sessionSearchOpen
-            "
+            v-if="!isStandaloneChatPage && sessionSearchOpen"
           />
           <DefaultCredentialPrompt
-            v-if="!isDesktopPetRoute && !isStandaloneChatPage"
+            v-if="!isStandaloneChatPage"
           />
           <ProviderConfigurationPrompt
-            v-if="!isDesktopPetRoute && !isStandaloneChatPage"
+            v-if="!isStandaloneChatPage"
           />
           <GlobalPendingActions
-            v-if="!isLoginPage && !isDesktopPetRoute && !isStandaloneChatPage"
+            v-if="!isLoginPage && !isStandaloneChatPage"
           />
           <RuntimeRestartPrompt
-            v-if="!isLoginPage && !isDesktopPetRoute && !isStandaloneChatPage && isStoredSuperAdmin()"
-          />
-          <ComputerUsePermissionPrompt
-            v-if="!isLoginPage && !isInviteOnlyPage && !isDesktopPetRoute && desktopBridge()?.computerUsePermissions?.claimReminder"
-          />
-          <StudioAnnouncementPrompt
-            v-if="!isLoginPage && !isInviteOnlyPage && !isDesktopPetRoute && !isStandaloneChatPage"
+            v-if="!isLoginPage && !isStandaloneChatPage && isStoredSuperAdmin()"
           />
         </NNotificationProvider>
       </NDialogProvider>

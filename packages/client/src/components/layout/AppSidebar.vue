@@ -3,7 +3,7 @@ import PageSidebar from "./PageSidebar.vue";
 import SidebarResizeHandle from "./SidebarResizeHandle.vue";
 import { usePageSidebarState } from "@/composables/usePageSidebar";
 import { computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/hermes/app";
 import RouteLinkItem from "@/components/common/RouteLinkItem.vue";
@@ -12,23 +12,12 @@ import { isStoredSuperAdmin } from "@/api/client";
 
 const { t } = useI18n();
 const route = useRoute();
-const router = useRouter();
 const appStore = useAppStore();
 const { expanded, isMobile } = usePageSidebarState();
 const selectedKey = computed(() => {
   return route.name as string;
 });
 const isSuperAdmin = computed(() => isStoredSuperAdmin());
-const isVersionPreview = import.meta.env.VITE_HERMES_PREVIEW === "1";
-const isDesktopShell = computed(
-  () =>
-    (window as typeof window & { hermesDesktop?: { isDesktop?: boolean } })
-      .hermesDesktop?.isDesktop === true,
-);
-
-function hasRoute(name: string): boolean {
-  return router.hasRoute(name);
-}
 
 function handleSidebarClick(event: MouseEvent) {
   const target = event.target instanceof Element ? event.target : null;
@@ -124,58 +113,6 @@ function handleSidebarClick(event: MouseEvent) {
         <span>{{ t("sidebar.skillsUsage") }}</span>
       </RouteLinkItem>
       <RouteLinkItem
-        v-if="isDesktopShell && hasRoute('hermes.browser')"
-        class="nav-item"
-        :to="{ name: 'hermes.browser' }"
-        :active="selectedKey === 'hermes.browser'"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 9h18" />
-          <path d="M9 3c-2 5-2 13 0 18" />
-          <path d="M15 3c2 5 2 13 0 18" />
-        </svg>
-        <span>{{ t("sidebar.browser") }}</span>
-      </RouteLinkItem>
-      <RouteLinkItem
-        v-if="
-          hasRoute('hermes.versionPreview') && isSuperAdmin && !isVersionPreview
-        "
-        class="nav-item"
-        :to="{ name: 'hermes.versionPreview' }"
-        :active="selectedKey === 'hermes.versionPreview'"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-          />
-          <polyline points="7.5 4.21 12 6.81 16.5 4.21" />
-          <polyline points="7.5 19.79 7.5 14.6 3 12" />
-          <polyline points="21 12 16.5 14.6 16.5 19.79" />
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-          <line x1="12" y1="22.08" x2="12" y2="12" />
-        </svg>
-        <span>{{ t("sidebar.versionPreview") }}</span>
-      </RouteLinkItem>
-      <RouteLinkItem
         class="nav-item"
         :to="{ name: 'hermes.theme' }"
         :active="selectedKey === 'hermes.theme'"
@@ -198,28 +135,6 @@ function handleSidebarClick(event: MouseEvent) {
           />
         </svg>
         <span>{{ t("sidebar.theme") }}</span>
-      </RouteLinkItem>
-      <RouteLinkItem
-        class="nav-item"
-        :to="{ name: 'hermes.petdex' }"
-        :active="selectedKey === 'hermes.petdex'"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4z" />
-          <path d="M9 11h.01" />
-          <path d="M15 11h.01" />
-          <path d="M9.5 15c1.6 1.1 3.4 1.1 5 0" />
-        </svg>
-        <span>{{ t("sidebar.petdex") }}</span>
       </RouteLinkItem>
       <RouteLinkItem
         v-if="isSuperAdmin"
