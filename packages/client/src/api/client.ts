@@ -122,8 +122,6 @@ export function getModelsPageProfile(): string | null {
 function modelSettingsRequestProfile(path: string): string | null {
   const pathname = path.split('?')[0]
   const isModelSettings = /^\/api\/hermes\/(?:config(?:\/|$)|auth\/|provider-models(?:\/|$)|model-alias$|model-visibility$|custom-model$)/.test(pathname)
-    || /^\/api\/studio\/(?:stt|tts)\/(?:settings|local-model)(?:\/|$)/.test(pathname)
-    || pathname === '/api/voice/providers/probe'
   return isModelSettings ? getModelsPageProfile() : null
 }
 
