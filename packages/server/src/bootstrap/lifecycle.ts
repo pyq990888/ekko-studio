@@ -73,6 +73,7 @@ export function createShutdownHandler(
   chatRunServer?: any,
   agentBridgeManager?: any,
   additionalSteps: AdditionalShutdownStep[] = [],
+  realtimeHub?: { close: () => void | Promise<void> } | null,
 ): ShutdownHandler {
   let shutdownPromise: Promise<void> | null = null
 
@@ -168,10 +169,19 @@ export function createShutdownHandler(
         await runShutdownStep('Outbound relay clients', () => stopOutboundRelayClient())
         await runShutdownStep('App relay clients', () => stopAppRelayClient())
 
-        // Disconnect Socket.IO before HTTP server to prevent hanging, and wait
-        // for adapter/namespace cleanup instead of racing process.exit().
+        // Disconnect feature agents before closing Socket.IO, then close the
+        // bootstrap-owned hub exactly once. A standalone GroupChatServer still
+        // closes the IO it created itself.
         if (groupChatServer) {
-          await runShutdownStep('Group chat agents', () => groupChatServer.agentClients.disconnectAll())
+          if (typeof groupChatServer.shutdown === 'function') {
+            await runShutdownStep('Group chat agents', () => groupChatServer.shutdown())
+          } else {
+            await runShutdownStep('Group chat agents', () => groupChatServer.agentClients.disconnectAll())
+          }
+        }
+        if (realtimeHub) {
+          await runShutdownStep('Socket.IO', () => realtimeHub.close())
+        } else if (groupChatServer && typeof groupChatServer.shutdown !== 'function') {
           await runShutdownStep('Socket.IO', () => groupChatServer.getIO().close())
         }
 

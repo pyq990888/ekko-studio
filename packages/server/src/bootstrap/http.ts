@@ -12,6 +12,7 @@ import { readFileSync } from 'fs'
 import { config, shouldCreateWebUiDataDir } from '../modules/studio/public/config'
 import { initLoginLimiter } from '../modules/studio/services/auth/login-limiter'
 import { createShutdownHandler } from './lifecycle'
+import { createRealtimeHub, type RealtimeHub } from './realtime'
 import { setupTerminalWebSocket } from '../modules/hermes/sockets/terminal'
 import { setupKanbanEventsWebSocket } from '../modules/hermes/sockets/kanban-events'
 import { startVersionCheck } from './health'
@@ -90,6 +91,7 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined'
 let server: any = null
 const servers: any[] = []
 let groupChatServer: GroupChatServer | null = null
+let realtimeHub: RealtimeHub | null = null
 let chatRunServer: any = null
 let workflowSocketServer: WorkflowSocketServer | null = null
 let petStateSocketServer: PetStateSocketServer | null = null
@@ -109,6 +111,7 @@ function getShutdownHandler(): ShutdownHandler {
       chatRunServer,
       agentBridgeManager,
       additionalShutdownSteps,
+      realtimeHub,
     )
   }
   return desktopShutdownHandler
@@ -555,22 +558,26 @@ export async function bootstrap() {
 
   const loopbackBaseUrl = getLoopbackBaseUrl(server)
 
+  // Bootstrap owns the shared Socket.IO transport; feature modules only attach namespaces.
+  const hub = createRealtimeHub(servers)
+  realtimeHub = hub
+
   // Group chat Socket.IO (must be after server is created)
-  const activeGroupChatServer = new GroupChatServer(servers)
+  const activeGroupChatServer = new GroupChatServer(servers, hub.io)
   groupChatServer = activeGroupChatServer
   setGroupChatServer(activeGroupChatServer)
-  groupAgentRelayServer = new GroupAgentRelayServer(activeGroupChatServer.getIO(), activeGroupChatServer)
+  groupAgentRelayServer = new GroupAgentRelayServer(hub.io, activeGroupChatServer)
   additionalShutdownSteps.push({
     name: 'Group agent relay',
     close: () => groupAgentRelayServer?.shutdown(),
   })
 
   // Chat run Socket.IO — shares the same Server instance, just adds /chat-run namespace
-  chatRunServer = new ChatRunSocket(activeGroupChatServer.getIO())
+  chatRunServer = new ChatRunSocket(hub.io)
   setChatRunServer(chatRunServer)
   activeGroupChatServer.setChatRunService(chatRunServer)
   chatRunServer.init()
-  const mobileTerminal = setupMobileTerminal(activeGroupChatServer.getIO(), context => {
+  const mobileTerminal = setupMobileTerminal(hub.io, context => {
     if (context.source === 'single') {
       const session = getTerminalSessionMetadata(context.sourceId)
       return session ? { profile: session.profile, workspace: session.workspace || '' } : null
@@ -579,7 +586,7 @@ export async function bootstrap() {
     return room ? { profile: context.profile, workspace: room.workspace || '' } : null
   })
   additionalShutdownSteps.push({ name: 'Mobile terminal PTY sessions', close: () => mobileTerminal.close() })
-  startLocalAppRelayServer(activeGroupChatServer.getIO(), { localBaseUrl: loopbackBaseUrl })
+  startLocalAppRelayServer(hub.io, { localBaseUrl: loopbackBaseUrl })
   console.log('[bootstrap] local App relay server ready')
   if (
     listAppConnections().some(connection => connection.connection_type === 'cloud')
@@ -612,18 +619,18 @@ export async function bootstrap() {
     close: () => workflowScheduleService.stop(),
   })
 
-  workflowSocketServer = new WorkflowSocketServer(activeGroupChatServer.getIO())
+  workflowSocketServer = new WorkflowSocketServer(hub.io)
   workflowSocketServer.init()
   additionalShutdownSteps.push({
     name: 'Workflow Socket.IO runtime',
     close: () => workflowSocketServer?.close(),
   })
 
-  petStateSocketServer = new PetStateSocketServer(activeGroupChatServer.getIO())
+  petStateSocketServer = new PetStateSocketServer(hub.io)
   petStateSocketServer.init()
-  registerDesktopBrowserRelay(activeGroupChatServer.getIO())
+  registerDesktopBrowserRelay(hub.io)
 
-  startGlobalAgentServer(activeGroupChatServer.getIO(), { localBaseUrl: loopbackBaseUrl })
+  startGlobalAgentServer(hub.io, { localBaseUrl: loopbackBaseUrl })
   console.log('[bootstrap] global agent server ready')
 
   // Session deleter — periodically drain pending session deletes
@@ -688,6 +695,7 @@ export async function bootstrap() {
     chatRunServer,
     agentBridgeManager,
     additionalShutdownSteps,
+    realtimeHub,
   )
   startVersionCheck()
   console.log('[bootstrap] startup complete')
