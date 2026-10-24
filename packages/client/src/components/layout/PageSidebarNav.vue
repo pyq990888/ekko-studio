@@ -206,7 +206,6 @@ function openUsage() {
   .page-sidebar-primary span { display: none; }
 }
 
-.api-relay-logo { border-radius: var(--radius-component, 4px); }
 
 .page-sidebar-tab {
   width: 100%;
