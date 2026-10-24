@@ -346,7 +346,6 @@ export default {
     groupMonitoringShort: '监控',
     groupTools: '工具',
     groupToolsShort: "工具",
-    codingAgents: "编程工具",
     versionPreview: "版本预览",
     theme: '主题',
     settings: '设置',

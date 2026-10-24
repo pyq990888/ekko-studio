@@ -346,7 +346,6 @@ export default {
     groupMonitoringShort: 'مراقبة',
     groupTools: 'الأدوات',
     groupToolsShort: "أدوات",
-    codingAgents: "وكلاء البرمجة",
     versionPreview: "معاينة الإصدار",
     theme: 'المظهر',
     settings: 'الإعدادات',

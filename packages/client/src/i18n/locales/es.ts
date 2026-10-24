@@ -375,7 +375,6 @@ export default {
     workflow: 'Workflow',
     groupTools: 'Herramientas',
     groupToolsShort: "Herr.",
-    codingAgents: "Agentes de código",
     versionPreview: "Vista previa de versión",
     groupPlatform: 'Plataforma',
     gateways: 'Puertas de enlace',

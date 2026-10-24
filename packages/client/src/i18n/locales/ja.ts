@@ -375,7 +375,6 @@ export default {
     workflow: 'ワークフロー',
     groupTools: 'ツール',
     groupToolsShort: "ツール",
-    codingAgents: "コーディングエージェント",
     versionPreview: "バージョンプレビュー",
     groupPlatform: 'プラットフォーム',
     gateways: 'ゲートウェイ',

@@ -346,7 +346,6 @@ export default {
     groupMonitoringShort: 'Mon',
     groupTools: 'Tools',
     groupToolsShort: "Tools",
-    codingAgents: "Coding Agents",
     versionPreview: "Version Preview",
     theme: 'Theme',
     settings: 'Settings',

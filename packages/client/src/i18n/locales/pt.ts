@@ -375,7 +375,6 @@ export default {
     workflow: 'Workflow',
     groupTools: 'Ferramentas',
     groupToolsShort: "Ferr.",
-    codingAgents: "Agentes de código",
     versionPreview: "Prévia de versão",
     groupPlatform: 'Plataforma',
     gateways: 'Gateways',

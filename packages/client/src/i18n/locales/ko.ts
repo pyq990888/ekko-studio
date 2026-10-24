@@ -375,7 +375,6 @@ export default {
     workflow: '워크플로',
     groupTools: '도구',
     groupToolsShort: "도구",
-    codingAgents: "코딩 에이전트",
     versionPreview: "버전 미리보기",
     groupPlatform: '플랫폼',
     gateways: '게이트웨이',
