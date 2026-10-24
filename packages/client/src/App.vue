@@ -428,14 +428,6 @@ useKeyboard();
     &.has-hermes-config-sidebar {
       display: flex;
     }
-
-    &.has-ekko-config-sidebar {
-      display: flex;
-    }
-
-    &.has-coding-agent-config-sidebar {
-      display: flex;
-    }
   }
 }
 
@@ -444,11 +436,7 @@ useKeyboard();
 
   :deep(.sidebar),
   :deep(.hermes-config-sidebar),
-  :deep(.ekko-config-sidebar),
-  :deep(.coding-agent-config-sidebar),
   :deep(.session-list),
-  :deep(.room-sidebar),
-  :deep(.workflow-sidebar),
   :deep(.header-sidebar-control) {
     transition: none;
   }
@@ -461,7 +449,7 @@ useKeyboard();
   overflow-y: auto;
   background-color: $bg-primary;
 
-  .no-sidebar:not(.has-hermes-config-sidebar):not(.has-ekko-config-sidebar):not(.has-coding-agent-config-sidebar) & {
+  .no-sidebar:not(.has-hermes-config-sidebar) & {
     height: 100%;
   }
 
@@ -550,17 +538,11 @@ useKeyboard();
 
     :deep(.header-title),
     :deep(h1),
-    :deep(.header-session-title),
-    :deep(.header-workflow-title),
-    :deep(.room-title-text) {
+    :deep(.header-session-title) {
       font-size: calc(var(--font-size-base, 14px) * 13 / 14);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    :deep(.header-workflow-title) {
-      margin-inline-start: 0;
     }
 
     :deep(.header-left) {
@@ -622,9 +604,7 @@ useKeyboard();
 
   .app-main--card,
   :deep(.chat-panel > .chat-main),
-  :deep(.history-panel > .page-loading-content > .chat-main),
-  :deep(.workflow-view > .page-loading-content > .workflow-main),
-  :deep(.group-chat-panel > .chat-main) {
+  :deep(.history-panel > .page-loading-content > .chat-main) {
     margin: 0;
     border: none;
     border-radius: 0;
@@ -665,17 +645,13 @@ useKeyboard();
   }
 
   :deep(.chat-panel),
-  :deep(.history-panel),
-  :deep(.group-chat-panel),
-  :deep(.workflow-view),
-  :deep(.petdex-view) {
+  :deep(.history-panel) {
     background-color: transparent;
   }
 
   .studio-frame-surface,
   :deep(.desktop-titlebar:not(.desktop-titlebar--flush)),
-  :deep(.chat-panel > .chat-main > .chat-header),
-  :deep(.group-chat-panel > .chat-main > .chat-header) {
+  :deep(.chat-panel > .chat-main > .chat-header) {
     background-color: var(--theme-chrome-bg, var(--glass-chrome-bg));
     -webkit-backdrop-filter: var(--theme-chrome-filter, blur(16px) saturate(110%));
     backdrop-filter: var(--theme-chrome-filter, blur(16px) saturate(110%));
@@ -683,49 +659,37 @@ useKeyboard();
 
   :deep(.sidebar),
   :deep(.hermes-config-sidebar),
-  :deep(.ekko-config-sidebar),
-  :deep(.coding-agent-config-sidebar),
   :deep(.chat-panel > .session-list),
-  :deep(.history-panel > .page-loading-content > .session-list),
-  :deep(.group-chat-panel > .room-sidebar),
-  :deep(.agent-avatar-rail),
-  :deep(.workflow-view > .page-loading-content > .workflow-sidebar) {
+  :deep(.history-panel > .page-loading-content > .session-list) {
     background-color: var(--theme-sidebar-bg, var(--glass-sidebar-bg));
     -webkit-backdrop-filter: var(--theme-sidebar-filter, blur(12px) saturate(110%));
     backdrop-filter: var(--theme-sidebar-filter, blur(12px) saturate(110%));
   }
 
   :deep(.history-panel > .page-loading-content > .chat-main),
-  :deep(.workflow-view > .page-loading-content > .workflow-main),
-  :deep(.connections-panel),
-  :deep(.agent-manager-panel),
   :deep(.models-view) {
     background-color: var(--theme-content-bg, var(--glass-content-bg));
     -webkit-backdrop-filter: var(--theme-content-filter, blur(8px) saturate(110%));
     backdrop-filter: var(--theme-content-filter, blur(8px) saturate(110%));
   }
 
-  :deep(.chat-panel > .chat-main),
-  :deep(.group-chat-panel > .chat-main) {
+  :deep(.chat-panel > .chat-main) {
     background-color: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  :deep(.chat-input-area),
-  :deep(.connections-tabs > .n-tabs-nav) {
+  :deep(.chat-input-area) {
     background-color: transparent;
   }
 
-  :deep(.chat-main-content),
-  :deep(.group-chat-surface) {
+  :deep(.chat-main-content) {
     background-color: var(--theme-content-bg, rgba(var(--bg-main-surface-rgb), 0.42));
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  :deep(.virtual-message-list),
-  :deep(.group-message-shell) {
+  :deep(.virtual-message-list) {
     background-color: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -783,17 +747,13 @@ useKeyboard();
   &:not(.app-shell--navigation-rail) {
     .app-main--card,
     :deep(.chat-panel > .chat-main),
-    :deep(.history-panel > .page-loading-content > .chat-main),
-    :deep(.workflow-view > .page-loading-content > .workflow-main),
-    :deep(.group-chat-panel > .chat-main) {
+    :deep(.history-panel > .page-loading-content > .chat-main) {
       margin-top: 50px;
     }
   }
 
   :deep(.chat-panel > .session-list > .page-sidebar-top),
-  :deep(.history-panel > .page-loading-content > .session-list > .page-sidebar-top),
-  :deep(.workflow-view > .page-loading-content > .workflow-sidebar > .page-sidebar-top),
-  :deep(.group-chat-panel > .room-sidebar > .sidebar-header) {
+  :deep(.history-panel > .page-loading-content > .session-list > .page-sidebar-top) {
     -webkit-app-region: drag;
 
     button,
@@ -832,16 +792,12 @@ useKeyboard();
 
 .app-shell.desktop-platform-darwin:not(.app-shell--navigation-rail) {
   .app-layout > :deep(.sidebar),
-  .app-layout > :deep(.hermes-config-sidebar),
-  .app-layout > :deep(.ekko-config-sidebar),
-  .app-layout > :deep(.coding-agent-config-sidebar) {
+  .app-layout > :deep(.hermes-config-sidebar) {
     padding-top: calc(40px * var(--spacing-scale, 1));
   }
 
   :deep(.chat-panel > .session-list > .page-sidebar-top),
-  :deep(.history-panel > .page-loading-content > .session-list > .page-sidebar-top),
-  :deep(.workflow-view > .page-loading-content > .workflow-sidebar > .page-sidebar-top),
-  :deep(.group-chat-panel > .room-sidebar > .sidebar-header) {
+  :deep(.history-panel > .page-loading-content > .session-list > .page-sidebar-top) {
     padding-top: calc(44px * var(--spacing-scale, 1));
   }
 }
