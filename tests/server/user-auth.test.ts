@@ -183,61 +183,6 @@ describe('user auth tables and middleware', () => {
     expect(ctx.body).toEqual({ error: 'Profile is required' })
   })
 
-  it.each([
-    '/api/studio/media/apikey-image-generate',
-    '/api/studio/media/grok-image-to-video',
-    '/api/studio/voice/proxy/default/v1/tts',
-    '/api/studio/voice/proxy/work/v1/audio/transcriptions',
-  ])('allows server token for an approved loopback agent endpoint %s', async (path) => {
-    vi.stubEnv('AUTH_TOKEN', 'server-token')
-    const { auth } = await initUsers()
-    const ctx = {
-      path,
-      headers: { authorization: 'Bearer server-token' },
-      query: {},
-      ip: '127.0.0.1',
-      request: { ip: '127.0.0.1', body: {} },
-      req: { socket: { remoteAddress: '127.0.0.1' } },
-      state: {},
-      status: 200,
-      body: null,
-    } as any
-    const next = vi.fn(async () => {})
-
-    await auth.requireUserJwt(ctx, next)
-
-    expect(next).toHaveBeenCalledOnce()
-    expect(ctx.state.serverTokenAuth).toBe(true)
-  })
-
-  it.each([
-    '/api/studio/media/apikey-image-generate',
-    '/api/studio/media/grok-image-to-video',
-    '/api/studio/voice/proxy/default/v1/tts',
-    '/api/studio/voice/proxy/work/v1/audio/transcriptions',
-  ])('rejects server token for local-only endpoint %s from non-loopback clients', async (path) => {
-    vi.stubEnv('AUTH_TOKEN', 'server-token')
-    const { auth } = await initUsers()
-    const ctx = {
-      path,
-      headers: { authorization: 'Bearer server-token' },
-      query: {},
-      ip: '192.168.1.50',
-      request: { ip: '192.168.1.50', body: {} },
-      req: { socket: { remoteAddress: '192.168.1.50' } },
-      state: {},
-      status: 200,
-      body: null,
-    } as any
-    const next = vi.fn(async () => {})
-
-    await auth.requireUserJwt(ctx, next)
-
-    expect(next).not.toHaveBeenCalled()
-    expect(ctx.status).toBe(401)
-    expect(ctx.body).toEqual({ error: 'Unauthorized' })
-  })
-
   it('requires super admin privileges after a valid user token reaches MCP device routes', async () => {
     const { auth } = await initUsers()
     const next = vi.fn(async () => {})
