@@ -15,11 +15,9 @@ import { computed, ref, nextTick, onMounted, onUnmounted, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToolTraceVisibility } from '@/composables/useToolTraceVisibility'
 import { extractClipboardFiles } from '@/utils/clipboard-files'
-import VoiceDialogueControls from './VoiceDialogueControls.vue'
 import BundleCreateModal from './BundleCreateModal.vue'
 import { BRIDGE_SESSION_COMMAND_DEFINITIONS } from '@/utils/hermes/bridge-session-commands'
 import { clampChatInputHeight, isMobileChatInputViewport } from '@/utils/chat-input-height'
-import { normalizeComposerVoiceTranscript, useComposerVoiceInput } from '@/composables/useComposerVoiceInput'
 import { extractRepresentativeVideoFrames, isVideoFile } from '@/utils/video-frame-extraction'
 import ImagePreviewOverlay from './ImagePreviewOverlay.vue'
 import ScreenshotButton from './ScreenshotButton.vue'
@@ -62,7 +60,6 @@ const submitting = ref(false)
 
 const emit = defineEmits<{
   modelClick: [event: MouseEvent]
-  voiceClick: []
   'update:reasoningEffort': [value: string]
 }>()
 
@@ -186,34 +183,6 @@ type SlashCommandOption = {
   opensBundleCreator?: boolean
 }
 
-function insertVoiceTranscriptIntoInput(text: string) {
-  const normalizedTranscript = normalizeComposerVoiceTranscript(text)
-  if (!normalizedTranscript) return
-
-  const el = textareaRef.value
-  const currentValue = inputText.value
-  const selectionStart = el?.selectionStart ?? currentValue.length
-  const selectionEnd = el?.selectionEnd ?? selectionStart
-  const before = currentValue.slice(0, selectionStart)
-  const after = currentValue.slice(selectionEnd)
-  const prefix = before && !/\s$/.test(before) ? ' ' : ''
-  const suffix = after && !/^\s/.test(after) ? ' ' : ''
-  const nextValue = `${before}${prefix}${normalizedTranscript}${suffix}${after}`
-  const nextCursorPosition = before.length + prefix.length + normalizedTranscript.length
-
-  inputText.value = nextValue
-  slashActive.value = false
-
-  nextTick(() => {
-    const textarea = textareaRef.value
-    if (!textarea) return
-
-    textarea.focus()
-    textarea.setSelectionRange(nextCursorPosition, nextCursorPosition)
-    autoSizeTextarea(textarea)
-  })
-}
-
 function clearMessageReference() {
   const sessionId = chatStore.activeSessionId
   if (sessionId) chatStore.clearMessageReference(sessionId)
@@ -227,10 +196,6 @@ watch(
     nextTick(() => textareaRef.value?.focus())
   },
 )
-
-const voiceInput = useComposerVoiceInput({
-  insertTranscript: insertVoiceTranscriptIntoInput,
-})
 
 const bridgeCommands = computed<SlashCommandOption[]>(() =>
   BRIDGE_SESSION_COMMAND_DEFINITIONS.map(command => ({
@@ -472,15 +437,6 @@ function startResize(e: MouseEvent) {
 
 const inputSettingsOptions = computed<DropdownOption[]>(() => [
   {
-    label: t('realtimeVoice.mode'),
-    key: 'voiceMode',
-    disabled: props.draft,
-    icon: () => h('span', {
-      class: 'settings-voice-mode-icon',
-      'aria-hidden': 'true',
-    }, '◉'),
-  },
-  {
     label: t('chat.showToolCalls'),
     key: 'toolTrace',
     icon: () => h('span', {
@@ -538,11 +494,6 @@ onMounted(() => {
 })
 
 function handleInputSettingsSelect(key: string | number) {
-  if (key === 'voiceMode') {
-    if (!props.draft && chatStore.activeSessionId) emit('voiceClick')
-    return
-  }
-
   if (key === 'toolTrace') {
     toggleToolTraceVisible()
     return
@@ -1394,15 +1345,6 @@ function openAttachmentPreview(attachment: Attachment) {
 
         </div>
         <div class="input-actions">
-          <VoiceDialogueControls
-            :status="voiceInput.dialogue.status.value"
-            :transcript="voiceInput.transcript.value"
-            :error="voiceInput.error.value"
-            :events="voiceInput.dialogue.events.value"
-            :on-start="voiceInput.start"
-            :on-stop="voiceInput.stop"
-            :on-cancel="voiceInput.cancel"
-          />
           <NButton
             size="medium"
             type="primary"
@@ -1627,33 +1569,6 @@ function openAttachmentPreview(attachment: Attachment) {
   min-width: 0;
   flex: 1;
   padding: 0;
-}
-
-.auto-play-speech-switch {
-  display: flex;
-  align-items: center;
-  gap: calc(5px * var(--spacing-scale, 1));
-  padding: 0 0 0 calc(2px * var(--spacing-scale, 1));
-  margin-inline-start: 0;
-
-  .switch-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--text-muted);
-    font-size: calc(var(--font-size-base, 14px) * 12 / 14);
-
-    svg {
-      opacity: 1;
-    }
-  }
-
-  :deep(.n-switch),
-  :deep(.n-switch__rail) {
-    margin-inline-end: 0;
-  }
 }
 
 .tool-trace-toggle {
@@ -2020,16 +1935,11 @@ function openAttachmentPreview(attachment: Attachment) {
 
 @media (max-width: 768px) {
   .chat-input-area {
-    --voice-overlay-mobile-bottom-offset: 146px;
     padding: 6px 8px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
   .input-top-bar {
     gap: calc(5px * var(--spacing-scale, 1));
-  }
-
-  .auto-play-speech-switch {
-    display: none;
   }
 
   .reasoning-effort-label {

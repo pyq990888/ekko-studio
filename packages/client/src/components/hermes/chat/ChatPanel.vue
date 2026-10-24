@@ -46,7 +46,6 @@ import FolderPicker from "./FolderPicker.vue";
 import StarIcon from "@/components/common/StarIcon.vue";
 import SessionTaskIcon from '@/components/common/SessionTaskIcon.vue';
 import ChatInput from "./ChatInput.vue";
-import RealtimeVoiceStage from "./RealtimeVoiceStage.vue";
 import ConversationMonitorPane from "./ConversationMonitorPane.vue";
 import MessageList from "./MessageList.vue";
 import SessionListItem from "./SessionListItem.vue";
@@ -117,7 +116,6 @@ let restoreActiveSessionMenuTriggerFocus = false;
 const activeSessionSupportsPersistence = computed(() =>
   Boolean(chatStore.activeSession && !chatStore.activeSession.isLocalOnly),
 );
-const showRealtimeVoice = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const messageSelectionActionsTarget = ref<HTMLElement | null>(null);
 const chatInputRef = ref<(InstanceType<typeof ChatInput> & {
@@ -168,15 +166,6 @@ const pageSidebarExpanded = computed(() => hasPageSidebar.value && showSessions.
 const toolPanelStyle = computed(() => ({
   width: isMobile.value ? "100%" : `min(${toolPanelWidth.value}px, 100%)`,
 }));
-
-function openRealtimeVoice() {
-  if (!chatStore.activeSessionId) return;
-  showRealtimeVoice.value = true;
-}
-
-function closeRealtimeVoice() {
-  showRealtimeVoice.value = false;
-}
 
 function sessionHref(sessionId: string, profile?: string | null) {
   return router.resolve({
@@ -1137,7 +1126,6 @@ async function openNewChatPage() {
   newChatPreviousToolPanel.value = previousToolPanel;
   currentMode.value = "chat";
   showToolPanel.value = false;
-  showRealtimeVoice.value = false;
   showOutline.value = false;
   newChatComposerRevision.value++;
   const sequence = ++newChatOptionsLoadSequence;
@@ -2723,7 +2711,6 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
             <MessageList
               ref="messageListRef"
               :selection-actions-target="messageSelectionActionsTarget"
-              :approval-portal-to-body="showRealtimeVoice"
               scroll-scope="chat"
             />
             <ChatInput
@@ -2733,7 +2720,6 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
               :initial-text="initialComposerText"
               :persist-draft="composerPersistDraft"
               @model-click="handleHeaderModelClick"
-              @voice-click="openRealtimeVoice"
             >
               <template #before-context-usage>
                 <div ref="messageSelectionActionsTarget" />
@@ -2841,12 +2827,6 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
       />
       </template>
     </div>
-    <Teleport to="body">
-      <RealtimeVoiceStage
-        v-if="showRealtimeVoice"
-        @close="closeRealtimeVoice"
-      />
-    </Teleport>
   </div>
 </template>
 

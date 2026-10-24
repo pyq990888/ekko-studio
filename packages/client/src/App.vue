@@ -24,9 +24,7 @@ import { getThemeOverrides } from "@/styles/theme";
 import { useTheme } from "@/composables/useTheme";
 import { useKeyboard } from "@/composables/useKeyboard";
 import { useSessionSearch } from "@/composables/useSessionSearch";
-import { watchServerTtsSettingsHydration } from "@/composables/useTtsSettingsHydration";
 import { useAppStore } from "@/stores/hermes/app";
-import { useProfilesStore } from "@/stores/hermes/profiles";
 import { isStoredSuperAdmin } from "@/api/client";
 import AuthEventListener from "@/components/auth/AuthEventListener.vue";
 import { desktopBridge } from "@/utils/desktop-bridge";
@@ -88,7 +86,6 @@ const { t, locale } = useI18n();
 const naiveLocale = computed(() => naiveLocaleFor(locale.value));
 const naiveRtl = computed(() => naiveRtlFor(locale.value));
 const appStore = useAppStore();
-const profilesStore = useProfilesStore();
 const route = useRoute();
 const { sessionSearchOpen } = useSessionSearch();
 
@@ -98,10 +95,6 @@ const themeOverrides = computed(() =>
 const naiveTheme = computed(() => (isDark.value ? darkTheme : null));
 
 const isLoginPage = computed(() => route.name === "login");
-watchServerTtsSettingsHydration({
-  isLoginPage: () => isLoginPage.value,
-  activeProfileName: () => profilesStore.activeProfileName,
-});
 const isStandaloneChatPage = computed(
   () => route.meta?.standaloneChat === true,
 );

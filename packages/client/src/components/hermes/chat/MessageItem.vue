@@ -6,7 +6,7 @@ import {
   type Message,
   type ContentBlock,
 } from "@/stores/hermes/chat";
-import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
+import { computed, onBeforeUnmount, ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { useMessage } from "naive-ui";
 import { downloadFile, getDownloadUrl } from "@/api/studio/download";
@@ -26,13 +26,9 @@ import {
   inferStructuredLanguage,
   renderHighlightedCodeBlock,
 } from "./highlight";
-import { useGlobalSpeech } from "@/composables/useSpeech";
-import { useVoiceSettings } from "@/composables/useVoiceSettings";
-import { speedToEdgeRate, hzToEdgePitch } from "@/utils/ttsHelpers";
 import { formatChatTimestamp } from "@/utils/chat-timestamp";
 import { openSubagentStream, subagentIdFromToolCall } from "@/utils/hermes/subagent-stream";
 import type { WorkspaceRunChangeSummary } from "@/api/studio/sessions";
-import { isServerTtsProvider } from "@/api/studio/tts";
 import type { ProfileAvatar as ProfileAvatarData } from "@/api/hermes/profiles";
 import ProfileAvatar from "@/components/hermes/profiles/ProfileAvatar.vue";
 import ImagePreviewOverlay from "./ImagePreviewOverlay.vue";
@@ -236,8 +232,6 @@ const chatStore = useChatStore();
 const filesStore = useFilesStore();
 const toolPanelStore = useToolPanelStore();
 const settingsStore = useSettingsStore();
-const speech = useGlobalSpeech();
-const voiceSettings = useVoiceSettings();
 const assistantAgent = computed(() => props.assistantAgent || chatSessionAgentAvatar(chatStore.activeSession));
 
 // Copy entire bubble content
@@ -685,222 +679,6 @@ async function openAssistantWorkspaceChangeFile(
   await toolPanelStore.openWorkspaceDiff(storedFile, change.workspace || "");
 }
 
-// 语音播放相关
-const canPlaySpeech = computed(() => {
-  // 只有 assistant 消息可以播放
-  if (props.message.role !== 'assistant') return false
-  if (!copyableContent.value) return false
-  // OpenAI / Custom / Edge / MiMo / Doubao 不依赖浏览器 Web Speech API
-  if (isServerTtsProvider(voiceSettings.provider.value)) return true
-  return speech.isSupported
-})
-
-const isPlayingThisMessage = computed(() => {
-  // OpenAI / Custom / Edge / MiMo / Doubao 模式
-  if (isServerTtsProvider(voiceSettings.provider.value)) {
-    return speech.currentCustomMessageId.value === props.message.id && speech.isCustomPlaying.value
-  }
-  return speech.currentMessageId.value === props.message.id && speech.isPlaying.value
-})
-
-const isPausedThisMessage = computed(() => {
-  // OpenAI / Custom / Edge / MiMo / Doubao 模式
-  if (isServerTtsProvider(voiceSettings.provider.value)) {
-    return speech.currentCustomMessageId.value === props.message.id && speech.isCustomPaused.value
-  }
-  return speech.currentMessageId.value === props.message.id && speech.isPaused.value
-})
-
-function handleSpeechToggle() {
-  if (!canPlaySpeech.value) {
-    return
-  }
-  const content = props.message.content || ''
-
-  // OpenAI TTS 模式
-  if (voiceSettings.provider.value === 'openai') {
-    const apiUrl = voiceSettings.openaiBaseUrl.value
-    if (!apiUrl) {
-      console.warn('[MessageItem] OpenAI TTS 地址为空')
-      return
-    }
-    speech.openaiToggle(props.message.id, content, {
-      provider: 'openai',
-      baseUrl: voiceSettings.openaiBaseUrl.value,
-      apiKey: voiceSettings.openaiApiKey.value,
-      model: voiceSettings.openaiModel.value,
-      voice: voiceSettings.openaiVoice.value,
-    })
-    return
-  }
-
-  // 自定义端点模式（OpenAI 兼容，如 GPT-SoVITS）
-  if (voiceSettings.provider.value === 'custom') {
-    const apiUrl = voiceSettings.customUrl.value
-    if (!apiUrl) {
-      console.warn('[MessageItem] 自定义 TTS 地址为空')
-      return
-    }
-    speech.openaiToggle(props.message.id, content, {
-      provider: 'custom',
-      baseUrl: voiceSettings.customUrl.value,
-      apiKey: voiceSettings.customApiKey.value || undefined,
-    })
-    return
-  }
-
-  // Edge TTS 模式
-  if (voiceSettings.provider.value === 'edge') {
-    // URL 为空时使用内建后端代理
-    const apiUrl = voiceSettings.edgeUrl.value || '/api/tts/proxy'
-    speech.openaiToggle(props.message.id, content, {
-      provider: 'edge',
-      baseUrl: apiUrl,
-      voice: voiceSettings.edgeVoice.value,
-      rate: speedToEdgeRate(voiceSettings.edgeRate.value),
-      pitch: hzToEdgePitch(voiceSettings.edgePitchHz.value),
-    })
-    return
-  }
-
-  // MiMo TTS 模式
-  if (voiceSettings.provider.value === 'mimo') {
-    const apiKey = voiceSettings.mimoApiKey.value
-    speech.mimoToggle(props.message.id, content, {
-      baseUrl: voiceSettings.mimoBaseUrl.value,
-      apiKey: apiKey || undefined,
-      authMode: voiceSettings.mimoAuthMode.value,
-      model: voiceSettings.mimoModel.value,
-      voiceMode: voiceSettings.mimoModel.value === 'mimo-v2.5-tts-voicedesign' ? 'voiceDesign' : voiceSettings.mimoModel.value === 'mimo-v2.5-tts-voiceclone' ? 'voiceClone' : 'preset',
-      voice: voiceSettings.mimoVoice.value,
-      voiceDesignDesc: voiceSettings.mimoVoiceDesignDesc.value || undefined,
-      voiceCloneDataUri: voiceSettings.mimoVoiceCloneDataUri.value || undefined,
-      voiceCloneFormat: voiceSettings.mimoVoiceCloneFormat.value,
-      stylePrompt: voiceSettings.mimoStylePrompt.value || undefined,
-    })
-    return
-  }
-
-  if (voiceSettings.provider.value === 'doubao') {
-    speech.openaiToggle(props.message.id, content, {
-      provider: 'doubao',
-      baseUrl: voiceSettings.doubaoBaseUrl.value,
-      model: voiceSettings.doubaoModel.value,
-      voice: voiceSettings.doubaoVoice.value,
-      stylePrompt: voiceSettings.doubaoStylePrompt.value || undefined,
-      speed: voiceSettings.doubaoSpeed.value || undefined,
-    })
-    return
-  }
-
-  if (isServerTtsProvider(voiceSettings.provider.value)) {
-    speech.openaiToggle(props.message.id, content, {
-      provider: voiceSettings.provider.value,
-    })
-    return
-  }
-
-  // Web Speech API 模式
-  if (voiceSettings.provider.value === 'webspeech') {
-    speech.toggleBrowser(props.message.id, content, {
-      voiceName: voiceSettings.webspeechVoice.value || undefined,
-    })
-    return
-  }
-
-  // 后备（无 provider 匹配时）
-  speech.toggle(props.message.id, content)
-}
-
-// 监听自动播放事件
-let autoPlayHandler: ((e: Event) => void) | null = null
-
-function handleAutoplayTtsError(err: unknown) {
-  if (err instanceof Error && err.name === 'AbortError') return
-  console.warn('[MessageItem] TTS autoplay failed:', err)
-}
-
-onMounted(() => {
-  autoPlayHandler = (e: Event) => {
-    const customEvent = e as CustomEvent<{ messageId: string; content: string }>
-    if (customEvent.detail.messageId === props.message.id && canPlaySpeech.value) {
-      const content = customEvent.detail.content || props.message.content || ''
-      if (voiceSettings.provider.value === 'openai') {
-        const apiUrl = voiceSettings.openaiBaseUrl.value
-        if (apiUrl) void speech.openaiPlay(props.message.id, content, {
-          provider: 'openai',
-          baseUrl: voiceSettings.openaiBaseUrl.value,
-          apiKey: voiceSettings.openaiApiKey.value,
-          model: voiceSettings.openaiModel.value,
-          voice: voiceSettings.openaiVoice.value,
-        }).catch(handleAutoplayTtsError)
-      } else if (voiceSettings.provider.value === 'custom') {
-        const apiUrl = voiceSettings.customUrl.value
-        if (apiUrl) void speech.openaiPlay(props.message.id, content, {
-          provider: 'custom',
-          baseUrl: voiceSettings.customUrl.value,
-          apiKey: voiceSettings.customApiKey.value || undefined,
-        }).catch(handleAutoplayTtsError)
-      } else if (voiceSettings.provider.value === 'edge') {
-        void speech.openaiPlay(props.message.id, content, {
-          provider: 'edge',
-          baseUrl: '/api/tts/proxy',
-          voice: voiceSettings.edgeVoice.value,
-          rate: speedToEdgeRate(voiceSettings.edgeRate.value),
-          pitch: hzToEdgePitch(voiceSettings.edgePitchHz.value),
-        }).catch(handleAutoplayTtsError)
-      } else if (voiceSettings.provider.value === 'mimo') {
-        const apiKey = voiceSettings.mimoApiKey.value
-        void speech.mimoPlay(props.message.id, content, {
-          baseUrl: voiceSettings.mimoBaseUrl.value,
-          apiKey: apiKey || undefined,
-          authMode: voiceSettings.mimoAuthMode.value,
-          model: voiceSettings.mimoModel.value,
-          voiceMode: voiceSettings.mimoModel.value === 'mimo-v2.5-tts-voicedesign' ? 'voiceDesign' : voiceSettings.mimoModel.value === 'mimo-v2.5-tts-voiceclone' ? 'voiceClone' : 'preset',
-          voice: voiceSettings.mimoVoice.value,
-          voiceDesignDesc: voiceSettings.mimoVoiceDesignDesc.value || undefined,
-          voiceCloneDataUri: voiceSettings.mimoVoiceCloneDataUri.value || undefined,
-          voiceCloneFormat: voiceSettings.mimoVoiceCloneFormat.value,
-          stylePrompt: voiceSettings.mimoStylePrompt.value || undefined,
-        }).catch(handleAutoplayTtsError)
-      } else if (voiceSettings.provider.value === 'doubao') {
-        void speech.openaiPlay(props.message.id, content, {
-          provider: 'doubao',
-          baseUrl: voiceSettings.doubaoBaseUrl.value,
-          model: voiceSettings.doubaoModel.value,
-          voice: voiceSettings.doubaoVoice.value,
-          stylePrompt: voiceSettings.doubaoStylePrompt.value || undefined,
-          speed: voiceSettings.doubaoSpeed.value || undefined,
-        }).catch(handleAutoplayTtsError)
-      } else if (isServerTtsProvider(voiceSettings.provider.value)) {
-        void speech.openaiPlay(props.message.id, content, {
-          provider: voiceSettings.provider.value,
-        }).catch(handleAutoplayTtsError)
-      } else if (voiceSettings.provider.value === 'webspeech') {
-        const text = speech.extractReadableText(content)
-        if (text) {
-          speech.stop(false)
-          speech.speakViaBrowser(props.message.id, text, {
-            voiceName: voiceSettings.webspeechVoice.value || undefined,
-          })
-        }
-      } else {
-        speech.enqueue(props.message.id, content)
-      }
-    }
-  }
-  window.addEventListener('auto-play-speech', autoPlayHandler)
-})
-
-// 组件卸载时停止播放并清理事件监听
-onBeforeUnmount(() => {
-  if (autoPlayHandler) {
-    window.removeEventListener('auto-play-speech', autoPlayHandler)
-  }
-  if (speech.currentMessageId.value === props.message.id || speech.currentCustomMessageId.value === props.message.id) {
-    speech.stop();
-  }
-});
 </script>
 
 <template>
@@ -1048,7 +826,6 @@ onBeforeUnmount(() => {
               'agent-error': isAgentError,
               command: isCommandMessage,
               'command-error': isCommandError,
-              'speech-playing': isPlayingThisMessage && !isPausedThisMessage,
             }"
           >
             <div v-if="hasAttachments" class="msg-attachments">
@@ -1271,21 +1048,6 @@ onBeforeUnmount(() => {
             </span>
           </div>
           <div class="message-meta">
-            <button
-              v-if="canPlaySpeech"
-              class="speech-bubble-btn"
-              :class="{ playing: isPlayingThisMessage, paused: isPausedThisMessage }"
-              @click="handleSpeechToggle"
-              :title="isPlayingThisMessage ? (isPausedThisMessage ? t('chat.resumeSpeech') : t('chat.pauseSpeech')) : t('chat.playSpeech')"
-            >
-              <svg v-if="!isPlayingThisMessage || isPausedThisMessage" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="6" y="4" width="4" height="16"/>
-                <rect x="14" y="4" width="4" height="16"/>
-              </svg>
-            </button>
             <button
               v-if="copyableContent"
               class="copy-bubble-btn"
@@ -1527,13 +1289,6 @@ onBeforeUnmount(() => {
     }
   }
 
-  &.speech-playing {
-    box-shadow:
-      0 0 0 2px #ff6b6b,
-      0 0 10px rgba(255, 107, 107, 0.4),
-      0 0 20px rgba(255, 107, 107, 0.2);
-    animation: rainbow-glow 4s linear infinite;
-  }
 }
 
 :global(html.theme-has-custom-background .message.user .message-bubble:not(.system):not(.command):not(.agent-error)),
@@ -1842,7 +1597,6 @@ onBeforeUnmount(() => {
 
 .copy-bubble-btn,
 .reference-bubble-btn,
-.speech-bubble-btn,
 .fork-bubble-btn {
   display: flex;
   align-items: center;
@@ -1862,27 +1616,6 @@ onBeforeUnmount(() => {
     background: rgba(0, 0, 0, 0.06);
   }
 
-}
-
-.speech-bubble-btn {
-  &.playing {
-    color: var(--accent-primary);
-    animation: pulse 1.5s ease-in-out infinite;
-
-    &.paused {
-      animation: none;
-      opacity: 0.6;
-    }
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 .message-time {
