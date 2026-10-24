@@ -65,12 +65,7 @@ import { loadNewChatFormPreferences, saveNewChatFormPreferences } from "@/utils/
 import { useDefaultWorkspace } from "@/composables/useDefaultWorkspace";
 import ModelCascader from "@/components/hermes/models/ModelCascader.vue";
 import { OPEN_SUBAGENT_STREAM_EVENT, type OpenSubagentStreamDetail } from "@/utils/hermes/subagent-stream";
-import { desktopBridge, hasDesktopBrowserBridge } from "@/utils/desktop-bridge";
-import { OPEN_DESKTOP_BROWSER_PANEL_EVENT } from "@/utils/desktop-browser";
-import {
-  createBrowserAnnotationAttachment,
-  type BrowserAnnotationSubmission,
-} from "@/utils/browser-annotation-submit";
+import { desktopBridge } from "@/utils/desktop-bridge";
 
 const props = withDefaults(defineProps<{
   standalone?: boolean;
@@ -91,7 +86,6 @@ const SessionTasksDrawer = defineAsyncComponent(async () => (await import('@/com
 const ModelsPanel = defineAsyncComponent(async () => (await import('@/views/hermes/ModelsView.vue')).default);
 const WorkspaceDiffPreview = defineAsyncComponent(async () => (await import('@/components/hermes/files/WorkspaceDiffPreview.vue')).default);
 const FilePreview = defineAsyncComponent(async () => (await import('@/components/hermes/files/FilePreview.vue')).default);
-const DesktopBrowserPanel = defineAsyncComponent(async () => (await import('./DesktopBrowserPanel.vue')).default);
 
 const chatStore = useChatStore();
 const appStore = useAppStore();
@@ -140,8 +134,7 @@ const isChatDropActive = ref(false);
 const showToolPanel = ref(false);
 const previewOnlyFileOpen = ref(false);
 const toolPanelTransitionReady = ref(false);
-const activeToolPanel = ref<"files" | "terminal" | "browser">("files");
-const desktopBrowserAvailable = hasDesktopBrowserBridge();
+const activeToolPanel = ref<"files" | "terminal">("files");
 const desktopChatWindowAvailable = desktopBridge()?.isDesktop === true
   && typeof desktopBridge()?.openChatWindow === "function";
 const selectedSubagent = ref<OpenSubagentStreamDetail | null>(null);
@@ -350,12 +343,6 @@ function handleWorkspaceFileAttach(file: File) {
   chatInputRef.value?.addFiles?.([file]);
 }
 
-async function submitBrowserAnnotations(payload: BrowserAnnotationSubmission): Promise<boolean> {
-  const attachment = createBrowserAnnotationAttachment(payload);
-  await chatStore.sendMessage("", [attachment]);
-  return true;
-}
-
 async function handleSessionClick(
   sessionId: string,
   options: { preserveCategoryCollapse?: boolean } = {},
@@ -474,29 +461,11 @@ function handleOpenSubagentStreamRequest(event: Event) {
   showToolPanel.value = true;
 }
 
-function handleOpenDesktopBrowserPanelRequest() {
-  if (!desktopBrowserAvailable) return;
-  if (toolPanelStore.workspaceDiff && filesStore.hasUnsavedChanges) {
-    message.warning(t("files.unsavedChanges"));
-    return;
-  }
-  if (toolPanelStore.workspaceDiff && filesStore.editingFile) filesStore.closeEditor();
-  workspacePreviewRequestSeq += 1;
-  workspacePreviewRequestPending = false;
-  filesStore.closePreview();
-  toolPanelStore.closeWorkspaceDiff();
-  previewOnlyFileOpen.value = false;
-  selectedSubagent.value = null;
-  activeToolPanel.value = "browser";
-  showToolPanel.value = true;
-}
-
 onMounted(() => {
 
 
 
   window.addEventListener("hermes:preview-workspace-file", handleWorkspaceFilePreviewRequest);
-  window.addEventListener(OPEN_DESKTOP_BROWSER_PANEL_EVENT, handleOpenDesktopBrowserPanelRequest);
   window.addEventListener(OPEN_SUBAGENT_STREAM_EVENT, handleOpenSubagentStreamRequest);
   window.addEventListener("resize", handleToolPanelViewportResize);
   window.addEventListener("keydown", handleNewChatEscape);
@@ -551,7 +520,6 @@ onUnmounted(() => {
   newChatOptionsLoadSequence++;
 
   window.removeEventListener("hermes:preview-workspace-file", handleWorkspaceFilePreviewRequest);
-  window.removeEventListener(OPEN_DESKTOP_BROWSER_PANEL_EVENT, handleOpenDesktopBrowserPanelRequest);
   window.removeEventListener(OPEN_SUBAGENT_STREAM_EVENT, handleOpenSubagentStreamRequest);
   window.removeEventListener("resize", handleToolPanelViewportResize);
   window.removeEventListener("keydown", handleNewChatEscape);
@@ -2631,7 +2599,7 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
                   </template>
                 </NButton>
               </template>
-              {{ desktopBrowserAvailable ? `${t("drawer.files")} / ${t("drawer.terminal")} / ${t("browser.title")}` : `${t("drawer.files")} / ${t("drawer.terminal")}` }}
+              {{ `${t("drawer.files")} / ${t("drawer.terminal")}` }}
             </NTooltip>
             <NDropdown
               v-model:show="showActiveSessionMenu"
@@ -2848,24 +2816,6 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
                         <path d="m7 9 3 3-3 3M13 15h4" />
                       </svg>
                     </button>
-                    <button
-                      v-if="desktopBrowserAvailable"
-                      class="chat-tool-tab"
-                      :class="{ active: activeToolPanel === 'browser' }"
-                      type="button"
-                      role="tab"
-                      :title="t('browser.title')"
-                      :aria-label="t('browser.title')"
-                      :aria-selected="activeToolPanel === 'browser'"
-                      @click="activeToolPanel = 'browser'"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="3" y="4" width="18" height="16" rx="2" />
-                        <path d="M3 9h18" />
-                        <circle cx="6.5" cy="6.5" r=".75" fill="currentColor" stroke="none" />
-                        <circle cx="9.5" cy="6.5" r=".75" fill="currentColor" stroke="none" />
-                      </svg>
-                    </button>
                   </div>
                   <div class="chat-tool-content">
                     <FilesPanel
@@ -2877,11 +2827,6 @@ function handleSessionModelSelect(selection: { model: string; provider: string }
                     <TerminalPanel
                       v-show="activeToolPanel === 'terminal'"
                       :visible="showToolPanel && activeToolPanel === 'terminal'"
-                    />
-                    <DesktopBrowserPanel
-                      v-if="desktopBrowserAvailable && activeToolPanel === 'browser'"
-                      :visible="toolPanelTransitionReady"
-                      :submit="submitBrowserAnnotations"
                     />
                   </div>
                 </template>
