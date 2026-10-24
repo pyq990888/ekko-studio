@@ -1,4 +1,3 @@
-import { handleSessionShareHttp } from '../services/session-shares/http-access'
 import type { Context, Next } from 'koa'
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto'
 import { getToken } from '../services/auth/token-auth'
@@ -15,7 +14,6 @@ import {
 } from '../repositories/users-store'
 import {
   getAppConnectionTokenStatus,
-  isAppConnectionTokenActive,
   type AppConnectionTokenStatus,
   type AppConnectionType,
 } from '../repositories/app-connections-store'
@@ -302,12 +300,7 @@ export async function authenticateUserToken(token: string): Promise<Authenticate
   const payload = token ? verifyUserJwt(token, secret) : null
   if (!payload) return null
 
-  if (payload.type === 'app_access' && !isAppConnectionTokenActive(
-    payload.app_device_code || '',
-    payload.app_connection_type || 'lan',
-    token,
-    Number(payload.sub),
-  )) return null
+  if (payload.type !== 'access') return null
 
   const user = findUserById(payload.sub)
   if (!user || user.status !== 'active') return null
@@ -332,8 +325,6 @@ export async function requireUserJwt(ctx: Context, next: Next): Promise<void> {
     await next()
     return
   }
-
-  if (await handleSessionShareHttp(ctx, next)) return
 
   const secret = await getJwtSecret()
   const token = requestToken(ctx)
@@ -415,12 +406,7 @@ export async function requireUserJwt(ctx: Context, next: Next): Promise<void> {
     return
   }
 
-  if (payload.type === 'app_access' && !isAppConnectionTokenActive(
-    payload.app_device_code || '',
-    payload.app_connection_type || 'lan',
-    token,
-    Number(payload.sub),
-  )) {
+  if (payload.type !== 'access') {
     ctx.status = 401
     ctx.body = { error: 'Unauthorized' }
     return
@@ -470,7 +456,6 @@ export function resolveRequestedProfile(ctx: Context): string {
 
 export async function resolveUserProfile(ctx: Context, next: Next): Promise<void> {
   if (isAccountModelApiPath(ctx.path)) { await next(); return }
-  if (ctx.state.sessionShare) { await next(); return }
   const user = ctx.state.user
   if (!user) {
     await next()
