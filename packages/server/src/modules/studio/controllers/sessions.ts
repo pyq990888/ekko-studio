@@ -63,7 +63,6 @@ import {
   normalizeWindowsWorkspacePath,
   useWindowsDriveWorkspaceMode,
 } from '../services/files/workspace-path'
-import { getGroupChatServer } from './group-chat'
 import { logger } from '../public/logging'
 import { isHermesAgentAvailable } from '../public/agent-status-registry'
 import { listUserProfiles } from '../public/users'
@@ -83,23 +82,9 @@ import { decorateWorkspaceEntries, getWorkspaceFileGitDiff } from '../services/f
 import { copyFile, mkdir, readFile, readdir, rename as fsRename, rm as fsRm, stat as fsStat, writeFile } from 'fs/promises'
 import { normalize as pathNormalize, resolve as pathResolve } from 'path'
 
-function getPendingDeletedSessionIds(): Set<string> {
-  return getGroupChatServer()?.getStorage().getPendingDeletedSessionIds() || new Set<string>()
-}
-
-function filterPendingDeletedSessions<T extends { id: string }>(items: T[]): T[] {
-  const pendingIds = getPendingDeletedSessionIds()
-  if (pendingIds.size === 0) return items
-  return items.filter(item => !pendingIds.has(item.id))
-}
-
 interface ConversationSummary {
   id: string
   [key: string]: any
-}
-
-function filterPendingDeletedConversationSummaries(items: ConversationSummary[]): ConversationSummary[] {
-  return filterPendingDeletedSessions(items)
 }
 
 function isArchivedSession(session?: { is_archived?: number | boolean | null } | null): boolean {
@@ -227,10 +212,10 @@ function mergeHermesHistorySessions(
     historySessionsById.set(session.id, { ...session, webui_imported: true })
   }
 
-  return filterPendingDeletedSessions(filterByAllowedProfiles(ctx, [...historySessionsById.values()]).filter(session =>
+  return filterByAllowedProfiles(ctx, [...historySessionsById.values()]).filter(session =>
     (!source || (agentGroups ? historySessionSource(session) : session.source) === source) &&
     (isHermesHistorySessionSource(session.source) || (isArchivedSession(session) && session.source !== 'global_agent')),
-  ))
+  )
 }
 
 function isProviderAgentSession(session?: { source?: string | null; agent?: string | null; agent_session_id?: string | null } | null): boolean {
@@ -457,7 +442,7 @@ export async function listConversations(ctx: any) {
     is_active: s.ended_at == null && (Date.now() / 1000 - s.last_active) <= 300,
     thread_session_count: 1,
   }))
-  ctx.body = { sessions: filterPendingDeletedConversationSummaries(filterByAllowedProfiles(ctx, summaries)) }
+  ctx.body = { sessions: filterByAllowedProfiles(ctx, summaries) }
 }
 
 export async function getConversationMessages(ctx: any) {
@@ -523,16 +508,16 @@ export async function list(ctx: any) {
     sources: source ? undefined : requestedSessionSources(),
     profiles: visibleProfiles,
     includeArchived: false,
-    excludeSessionIds: [...getPendingDeletedSessionIds(), ...excludedIds],
+    excludeSessionIds: excludedIds,
   }
   const allSessions = localListSessions(profile, source, effectiveLimit + (paginated ? 1 : 0), {
     ...listOptions,
     ...(paginated ? { offset } : {}),
   })
-  const sessions = filterPendingDeletedSessions(filterArchivedSessions(filterByAllowedProfiles(ctx, allSessions).filter(s =>
+  const sessions = filterArchivedSessions(filterByAllowedProfiles(ctx, allSessions).filter(s =>
       isRequestedSessionSource(source, s.source) &&
       (!knownProfiles || knownProfiles.has(s.profile || 'default')),
-    )))
+    ))
   ctx.body = {
     sessions: paginated ? sessions.slice(0, effectiveLimit) : sessions,
     ...(paginated ? {
@@ -617,10 +602,10 @@ export async function count(ctx: any) {
   const profile = explicitProfileFilter(ctx)
   const allSessions = localListSessions(profile, source, 2147483647)
   const knownProfiles = profile ? null : new Set(listProfileNamesFromDisk())
-  const sessions = filterPendingDeletedSessions(filterArchivedSessions(filterByAllowedProfiles(ctx, allSessions).filter(s =>
+  const sessions = filterArchivedSessions(filterByAllowedProfiles(ctx, allSessions).filter(s =>
     isRequestedSessionSource(source, s.source) &&
     (!knownProfiles || knownProfiles.has(s.profile || 'default')),
-  )))
+  ))
   ctx.body = { count: sessions.length }
 }
 
@@ -761,19 +746,17 @@ export async function search(ctx: any) {
   const searchableProfiles = profile
     ? undefined
     : listProfileNamesFromDisk().filter(name => !allowedProfiles || allowedProfiles.has(name))
-  const pendingDeletedIds = [...getPendingDeletedSessionIds()]
   const results = localSearchSessions(profile, q, limit && limit > 0 ? limit : 20, {
     sources: requestedSessionSources(source),
     profiles: searchableProfiles,
     includeArchived: false,
-    excludeSessionIds: pendingDeletedIds,
   })
   const knownProfiles = profile ? null : new Set(searchableProfiles)
   ctx.body = {
-    results: filterPendingDeletedSessions(filterArchivedSessions(filterByAllowedProfiles(ctx, results).filter(s =>
+    results: filterArchivedSessions(filterByAllowedProfiles(ctx, results).filter(s =>
       isRequestedSessionSource(source, s.source) &&
       (!knownProfiles || knownProfiles.has(s.profile || 'default')),
-    ))),
+    )),
   }
 }
 
@@ -1170,7 +1153,7 @@ export function listTasks(ctx: any) {
   const allowed = allowedProfileSet(ctx)
   const profiles = listProfileNamesFromDisk().filter(name => (!runScoped || Boolean(profile))
     && (!profile || profile === name) && (!allowed || allowed.has(name)))
-  ctx.body = listSessionTaskItems({ profiles, excludeSessionIds: [...getPendingDeletedSessionIds()],
+  ctx.body = listSessionTaskItems({ profiles,
     search: search.trim(), status, order, offset: Number(offset), limit: Number(limit) })
 }
 
