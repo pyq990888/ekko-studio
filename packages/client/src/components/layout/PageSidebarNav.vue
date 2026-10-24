@@ -3,12 +3,11 @@ import { computed } from 'vue'
 import { NTooltip } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { isStoredSuperAdmin } from '@/api/client'
 import { useSessionSearch } from '@/composables/useSessionSearch'
 import DesktopUpdateDownloadTab from './DesktopUpdateDownloadTab.vue'
 import { useNavigationRail } from '@/composables/useNavigationRail'
 
-type ActiveSection = 'chat' | 'history' | 'agents' | 'models' | 'usage'
+type ActiveSection = 'chat' | 'history' | 'models' | 'usage'
 
 const props = defineProps<{
   active: ActiveSection
@@ -22,7 +21,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const router = useRouter()
 const { openSessionSearch } = useSessionSearch()
-const canManageAgents = computed(() => isStoredSuperAdmin())
 const hasNavigationRail = useNavigationRail()
 
 const primaryText = computed(() => props.primaryLabel || t('chat.newChat'))
@@ -35,11 +33,6 @@ function openChat() {
 function openHistory() {
   if (props.active === 'history') return
   void router.push({ name: 'hermes.history' })
-}
-
-function openAgentManager() {
-  if (props.active === 'agents') return
-  void router.push({ name: 'hermes.agentManager' })
 }
 
 function openModels() {
@@ -97,31 +90,6 @@ function openUsage() {
           <slot name="actions" />
         </div>
       </div>
-      <button
-        v-if="canManageAgents && !hasNavigationRail"
-        class="page-sidebar-tab"
-        :class="{ active: active === 'agents' }"
-        type="button"
-        :aria-current="active === 'agents' ? 'page' : undefined"
-        @click="openAgentManager"
-      >
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M12 8V4H8" />
-          <rect x="4" y="8" width="16" height="12" rx="3" />
-          <path d="M2 14h2M20 14h2M9 13v2M15 13v2" />
-        </svg>
-        <span>{{ t('sidebar.agentManager') }}</span>
-      </button>
       <button
         v-if="!hasNavigationRail"
         class="page-sidebar-tab"

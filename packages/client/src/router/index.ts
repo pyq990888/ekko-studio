@@ -137,12 +137,6 @@ const router = createRouter({
       meta: { requiresSuperAdmin: true },
     },
     {
-      path: '/studio/agents',
-      name: 'hermes.agentManager',
-      component: () => import('@/views/hermes/ChatView.vue'),
-      meta: { requiresSuperAdmin: true },
-    },
-    {
       path: '/hermes/files',
       name: 'hermes.files',
       component: () => import('@/views/hermes/FilesView.vue'),
