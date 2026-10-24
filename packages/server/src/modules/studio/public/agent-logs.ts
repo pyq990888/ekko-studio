@@ -1,7 +1,5 @@
 import type {
   AgentLogFile,
-  AgentLogQuery,
-  StructuredAgentLogSource,
   StudioAgentLogDependencies,
 } from '../contracts/agents/logs'
 
@@ -36,12 +34,4 @@ export function readPrimaryAgentLogs(
   since?: string,
 ): Promise<string> {
   return configured().readPrimaryAgentLogs(name, lines, level, session, since)
-}
-
-export function getEkkoLogSource(profile: string): StructuredAgentLogSource | null {
-  return configured().getEkkoLogSource(profile)
-}
-
-export function queryAgentLogs(source: StructuredAgentLogSource, query: AgentLogQuery) {
-  return source.query(query)
 }

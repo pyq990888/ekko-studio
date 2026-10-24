@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureChatAgentRuntime } from '../../packages/server/src/modules/studio/public/chat-agent-runtime'
-import { projectBrowserHistory } from '../../packages/ekko-agent/src/model/browser-context'
+import { projectBrowserHistory } from '../../packages/shared/chat-browser-history'
 
 const addMessageMock = vi.fn()
 const getSessionDetailMock = vi.fn()
