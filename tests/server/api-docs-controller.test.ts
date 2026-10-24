@@ -49,7 +49,7 @@ describe('api docs controller', () => {
     )
     expect(
       ctx.body.paths['/api/studio/chat-run/runs'].post.requestBody.content['application/json'].schema.properties.source.enum,
-    ).toEqual(['cli', 'builtin_agent', 'coding_agent', 'global_agent', 'workflow', 'group_chat'])
+    ).toEqual(['cli', 'builtin_agent', 'coding_agent', 'global_agent', 'group_chat'])
     for (const path of ['/api/studio/sessions/hermes', '/api/studio/sessions/hermes/groups']) {
       expect(ctx.body.paths[path].get.parameters).toContainEqual(expect.objectContaining({
         name: 'agent_groups', in: 'query', required: false,

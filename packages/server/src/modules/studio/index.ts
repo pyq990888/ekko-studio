@@ -8,11 +8,14 @@ export type { AgentBridgeHealthPayload, StudioHealthDependencies } from './contr
 export { AGENT_FAMILIES, isAgentFamily } from './contracts/agents/family'
 export type { AgentFamily } from './contracts/agents/family'
 export {
+  ACTIVE_AGENT_RUNTIMES,
   AGENT_RUNTIMES,
   agentFamilyForRuntime,
+  isActiveAgentRuntime,
   isAgentRuntime,
+  isPersistedAgentRuntime,
 } from './contracts/agents/runtime'
-export type { AgentRuntime, CodingAgentRuntime } from './contracts/agents/runtime'
+export type { ActiveAgentRuntime, AgentRuntime, CodingAgentRuntime, PersistedAgentRuntime } from './contracts/agents/runtime'
 export { RUN_MODES, RUN_SURFACES, isRunMode, isRunSurface } from './contracts/runs/surface'
 export type { RunMode, RunSurface } from './contracts/runs/surface'
 export * from './contracts/runs/model-execution-identity'

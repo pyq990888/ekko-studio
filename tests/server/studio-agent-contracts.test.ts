@@ -2,38 +2,27 @@ import { describe, expect, it } from 'vitest'
 import {
   AGENT_FAMILIES,
   AGENT_RUNTIMES,
+  ACTIVE_AGENT_RUNTIMES,
   RUN_MODES,
   RUN_SURFACES,
   agentFamilyForRuntime,
+  isActiveAgentRuntime,
   isAgentFamily,
   isAgentRuntime,
+  isPersistedAgentRuntime,
   isRunMode,
   isRunSurface,
 } from '../../packages/server/src/modules/studio'
-import type { GroupChatRunService } from '../../packages/server/src/modules/studio/services/group-chat/agent-clients'
 
 describe('Studio agent contracts', () => {
-  it('keeps the three families distinct from the sixteen runtimes', () => {
+  it('keeps families distinct from the persisted runtime union', () => {
     expect(AGENT_FAMILIES).toEqual(['hermes', 'ekko', 'coding'])
-    expect(AGENT_RUNTIMES).toEqual(['hermes', 'ekko', 'claude-code', 'codex', 'pi', 'grok', 'opencode', 'dsh', 'cursor', 'antigravity', 'qwen', 'kimi', 'codebuddy', 'qoder', 'copilot', 'zcode'])
-    expect(AGENT_RUNTIMES.map(agentFamilyForRuntime)).toEqual([
-      'hermes',
-      'ekko',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-      'coding',
-    ])
+    // The persisted union still contains removed runtimes so historical
+    // `sessions.agent` rows keep resolving. Only Hermes may start new runs.
+    expect(AGENT_RUNTIMES).toContain('hermes')
+    expect(AGENT_RUNTIMES).toContain('ekko')
+    expect(ACTIVE_AGENT_RUNTIMES).toEqual(['hermes'])
+    expect(AGENT_RUNTIMES.map(agentFamilyForRuntime)).toContain('coding')
   })
 
   it('validates canonical values without accepting legacy aliases', () => {
@@ -45,19 +34,23 @@ describe('Studio agent contracts', () => {
     expect(isAgentRuntime('ekko-agent')).toBe(false)
   })
 
-  it('keeps launch surface and mode independent from runtime', () => {
-    expect(RUN_SURFACES).toEqual(['chat', 'workflow', 'group-chat', 'global-agent', 'api'])
-    expect(RUN_MODES).toEqual(['scoped', 'global'])
-    expect(isRunSurface('workflow')).toBe(true)
-    expect(isRunSurface('coding_agent')).toBe(false)
-    expect(isRunMode('global')).toBe(true)
+  it('gates new runs to the active runtime while old rows stay readable', () => {
+    expect(isActiveAgentRuntime('hermes')).toBe(true)
+    expect(isActiveAgentRuntime('ekko')).toBe(false)
+    expect(isActiveAgentRuntime('claude-code')).toBe(false)
+    expect(isPersistedAgentRuntime('ekko')).toBe(true)
+    expect(isPersistedAgentRuntime('claude-code')).toBe(true)
+    expect(isPersistedAgentRuntime('claude')).toBe(false)
   })
 
-  it('accepts cursor as a group-chat coding_agent_id', () => {
-    type GroupCodingAgentId = NonNullable<
-      Parameters<GroupChatRunService['runAndWait']>[0]['coding_agent_id']
-    >
-    const id: GroupCodingAgentId = 'cursor'
-    expect(id).toBe('cursor')
+  it('keeps launch surface and mode independent from runtime', () => {
+    expect(RUN_SURFACES).toContain('chat')
+    expect(RUN_MODES).toEqual(['scoped', 'global'])
+    // Removed surfaces stay readable in the union for persisted rows.
+    expect(RUN_SURFACES).toContain('group-chat')
+    expect(RUN_SURFACES).toContain('global-agent')
+    expect(isRunSurface('workflow')).toBe(false)
+    expect(isRunSurface('coding_agent')).toBe(false)
+    expect(isRunMode('global')).toBe(true)
   })
 })

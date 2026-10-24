@@ -12,7 +12,7 @@ import {
 describe('Agent availability validation', () => {
   beforeEach(resetAgentStatusRegistryForTests)
 
-  it('normalizes group-chat and workflow Agent aliases', () => {
+  it('normalizes legacy Agent aliases for persisted sessions', () => {
     expect(resolveAgentStatusId('ekko')).toBe('ekko-agent')
     expect(resolveAgentStatusId('claude')).toBe('claude-code')
     expect(resolveAgentStatusId('claude-code')).toBe('claude-code')
@@ -34,32 +34,5 @@ describe('Agent availability validation', () => {
     })
     expect(assertAgentAvailable('codex')).toBe('codex')
     expect(assertAgentAvailable('ekko')).toBe('ekko-agent')
-  })
-
-  it('validates every workflow node before execution', async () => {
-    const { assertWorkflowAgentDependencies } = await import(
-      '../../packages/server/src/modules/studio/services/workflow/manager'
-    )
-    const nodes = [{
-      id: 'node-1',
-      type: 'agent',
-      data: {
-        title: 'Reviewer',
-        agent: 'codex',
-        provider: 'openai',
-        model: 'gpt-test',
-        apiMode: 'codex_responses',
-        reasoningEffort: '',
-        input: 'Review',
-        skills: [],
-        images: [],
-        approvalRequired: false,
-        orchestration: { join: 'all' as const },
-      },
-    }]
-
-    expect(() => assertWorkflowAgentDependencies(nodes)).toThrow('Codex is not installed')
-    updateAgentStatus('codex', { installed: true, source: 'user-cli', path: '/usr/local/bin/codex' })
-    expect(() => assertWorkflowAgentDependencies(nodes)).not.toThrow()
   })
 })
