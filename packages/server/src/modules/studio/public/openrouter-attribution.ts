@@ -1,1 +1,1 @@
-export { OPENROUTER_APP_HEADERS, openRouterAttributionHeaders } from '../../../../../ekko-agent/src/model/openrouter-attribution'
+export { OPENROUTER_APP_HEADERS, openRouterAttributionHeaders } from '../../../../../shared/provider-headers'

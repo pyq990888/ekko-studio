@@ -1,1 +1,1 @@
-export { openCodeSessionHeaders } from '../../../../../ekko-agent/src/model/opencode-session'
+export { openCodeSessionHeaders } from '../../../../../shared/provider-headers'
