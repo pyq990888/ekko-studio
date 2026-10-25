@@ -75,9 +75,19 @@ function pythonFromLauncher(hermesBin: string, env: NodeJS.ProcessEnv): string |
     }
 
     // The standard Unix installer writes a shell wrapper whose exec target is
-    // the selected Hermes virtualenv's absolute Python path.
+    // the selected Hermes virtualenv's absolute Python path. The target may be
+    // quoted or bare, so match both forms.
     for (const match of contents.matchAll(/["']([^"'\r\n]+)["']/g)) {
       const candidate = match[1]
+      if (isAbsolute(candidate) && isPythonExecutable(candidate) && existsSync(candidate)) {
+        return candidate
+      }
+    }
+
+    // Bare (unquoted) absolute interpreter after `exec`, e.g.
+    // `exec /opt/hermes/tools/python-3.14/bin/python3 -I -c '...'`.
+    for (const match of contents.matchAll(/\bexec\s+(\S+)/g)) {
+      const candidate = match[1].replace(/^["']|["']$/g, '')
       if (isAbsolute(candidate) && isPythonExecutable(candidate) && existsSync(candidate)) {
         return candidate
       }
