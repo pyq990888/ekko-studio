@@ -7785,22 +7785,6 @@
             }
           },
           {
-            "name": "category",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "event",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "level",
             "in": "query",
             "required": false,
@@ -7817,14 +7801,6 @@
             }
           },
           {
-            "name": "run",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "session",
             "in": "query",
             "required": false,
@@ -7834,14 +7810,6 @@
           },
           {
             "name": "since",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "text",
             "in": "query",
             "required": false,
             "schema": {
