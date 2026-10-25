@@ -102,55 +102,61 @@ runtime downloads, activation, and version management live in
 Docker images start from `nousresearch/hermes-agent` and only add the Node.js
 runtime plus this repository's build output.
 
-### Desktop Hermes Runtime
+### Resolving the interpreter
 
-Hermes runtime assets are built separately by
-`.github/workflows/desktop-runtime.yml`. `packages/desktop/scripts/runtime-config.mjs`
-pins an upstream Hermes version, Git ref, and full commit; version overrides
-must supply the ref and commit together.
-
-For releases that declare placeholder package metadata (`0.0.0`), the runtime
-requires the matching `v<version>` source tag and uses upstream's install-stamp
-writer without changing tracked files. Installation and relocation checks read
-the canonical Hermes identity. Manual dispatches can override `python_version`
-and `python_build_tag` together; Hermes 0.22.2 uses Python 3.14.7 from the
-python-build-standalone `20260901` release.
-
-The portable Node.js included in runtime assets is pinned independently from
-the GitHub Actions runner. Manual runtime dispatches take a target release tag;
-when the release does not exist, the upload step creates it with the workflow's
-`GITHUB_TOKEN`. Do not pre-publish runtime-only releases with a user token,
-because that emits `release.published` and starts the normal Web UI and Docker
-release workflows.
-
-The published runtime keeps this updateable layout:
+Installations differ in how the `hermes` command reaches Python. Resolution
+starts from the selected executable and follows the launcher until it finds an
+interpreter, so all of these layouts work:
 
 ```text
-python/                 Hermes Agent Git checkout and source root
-  .git/
-  base/                 Windows python-build-standalone base runtime
-  venv/                 bundled Python environment
-    Scripts/python.exe  Windows PEP 405 venv interpreter
-  agent-browser/
-  node/                  browser CLI npm prefix
-  ms-playwright/
-node/                    bundled Node.js
-git/                     bundled MinGit on Windows
-runtime-manifest.json
+# single-hop wrapper
+#!/bin/sh
+exec /opt/hermes/venv/bin/python3 -I -c '...'
+
+# quoted target
+#!/bin/sh
+exec "/opt/hermes/venv/bin/python3" -I -c '...'
+
+# multi-hop wrapper (~/.local/bin/hermes -> <install>/.hermes/bin/hermes -> python)
+#!/bin/sh
+exec /opt/hermes/.hermes/bin/hermes "$@"
 ```
 
-`prepare:runtime` fetches the exact source commit and installs its locked
-dependencies into `python/venv`. On Windows, the standalone base interpreter is
-embedded at `python/base` and a sibling PEP 405 venv wraps it. Windows requires
-an absolute `pyvenv.cfg` home, so the build, package validation, extraction, and
-runtime migration paths rebase that value before launching Python. This lets
-upstream `hermes update` safely target the environment through `VIRTUAL_ENV`.
-The build also creates the upstream TUI/dashboard and verifies that the retained
-checkout is clean. `package:runtime` includes the source and Git metadata in the
-GitHub/CF archive and records them in schema 2 of the runtime manifest. Do not
-patch tracked Hermes source during this build:
-Studio-specific integration belongs in Studio, and the clean checkout is what
-allows users to run the upstream `hermes update` command directly.
+`resolveHermesInstallationEnvironment` walks the chain (bounded, cycle-safe),
+then locates the Agent Root by looking for `run_agent.py`. The CLI version probe
+runs with that Agent Root on `PYTHONPATH`, mirroring what the launcher does, so
+`import hermes_cli` resolves.
+
+When resolution fails the runtime status reports the concrete reason instead of
+a generic error: `Hermes Python executable could not be resolved` or
+`Hermes CLI import probe failed (...)`. Both are actionable — set
+`HERMES_AGENT_ROOT` or `HERMES_BIN` explicitly.
+
+### Managed runtimes
+
+A runtime downloaded through the Web UI lives under
+`<HERMES_WEB_UI_HOME>/desktop-runtime` and is versioned independently of a
+user-installed CLI. `readLockedDesktopHermesSelection` pins the choice through
+`HERMES_RUNTIME_SOURCE`, `HERMES_RUNTIME_SELECTION_LOCKED`, and related
+variables; without those, the server re-probes on every start.
+
+### Chat run data flow
+
+```text
+ChatRunSocket.handleRun
+  └─ handleBridgeRun
+       ├─ buildCompressedHistory ──► getModelContextLength (provider-runtime facade)
+       ├─ AgentBridgeClient.chat ──► hermes_bridge.py ──► run_agent.AIAgent
+       └─ calcAndUpdateUsage ──► usage store
+```
+
+`buildCompressedHistory` runs on **every** turn and calls the provider runtime
+facade to size the context window. `bootstrap/provider-runtime-adapter.ts` must
+therefore be imported during bootstrap. If it is missing, compression throws,
+history silently becomes empty, and the model answers as if the conversation had
+just started — a failure mode that looks like a model bug, not a wiring bug.
+`tests/server/provider-runtime-wiring.test.ts` guards this seam.
+
 
 ## Validation Surface
 
