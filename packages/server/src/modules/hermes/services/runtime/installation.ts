@@ -55,7 +55,21 @@ function resolveFromPath(command: string, env: NodeJS.ProcessEnv): string | unde
   return undefined
 }
 
-function pythonFromLauncher(hermesBin: string, env: NodeJS.ProcessEnv): string | undefined {
+/**
+ * Follow a chain of shell wrappers until a Python interpreter is found.
+ *
+ * Installers may write more than one hop: `~/.local/bin/hermes` often just
+ * forwards to `<install>/.hermes/bin/hermes`, which in turn execs the real
+ * interpreter. Guard against cycles and stop at the first Python hit.
+ */
+function pythonFromLauncher(
+  hermesBin: string,
+  env: NodeJS.ProcessEnv,
+  seen: Set<string> = new Set(),
+): string | undefined {
+  if (seen.has(hermesBin) || seen.size > 8) return undefined
+  seen.add(hermesBin)
+
   for (const contents of launcherContents(hermesBin)) {
     const firstLine = contents.split(/\r?\n/, 1)[0] || ''
     const shebang = firstLine.match(/^#!\s*(.+)$/)?.[1]?.trim() || ''
@@ -91,6 +105,15 @@ function pythonFromLauncher(hermesBin: string, env: NodeJS.ProcessEnv): string |
       if (isAbsolute(candidate) && isPythonExecutable(candidate) && existsSync(candidate)) {
         return candidate
       }
+    }
+
+    // One more wrapper hop: `exec <other-hermes-script> "$@"`.
+    for (const match of contents.matchAll(/\bexec\s+(\S+)/g)) {
+      const candidate = match[1].replace(/^["']|["']$/g, '')
+      if (!isAbsolute(candidate) || !existsSync(candidate)) continue
+      if (isPythonExecutable(candidate)) continue
+      const nested = pythonFromLauncher(candidate, env, seen)
+      if (nested) return nested
     }
   }
   return undefined

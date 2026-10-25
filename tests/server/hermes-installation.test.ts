@@ -53,6 +53,31 @@ describe('Hermes installation environment resolution', () => {
     expect(env.agentRoot).toBe(join(root, 'hermes-agent'))
   })
 
+  it('follows a wrapper chain to the real python interpreter', () => {
+    const root = sandbox()
+    const python = join(root, 'tools', 'python-3.14.7+20260901-linux-x64', 'bin', 'python3')
+    mkdirSync(join(root, 'tools', 'python-3.14.7+20260901-linux-x64', 'bin'), { recursive: true })
+    writeFileSync(python, '')
+    chmodSync(python, 0o755)
+    mkdirSync(join(root, 'hermes-agent'), { recursive: true })
+    writeFileSync(join(root, 'hermes-agent', 'run_agent.py'), '')
+
+    // Real install: `~/.local/bin/hermes` -> `<install>/.hermes/bin/hermes` -> python.
+    const inner = join(root, 'hermes-agent', '.hermes', 'bin', 'hermes')
+    mkdirSync(join(root, 'hermes-agent', '.hermes', 'bin'), { recursive: true })
+    writeFileSync(inner, `#!/bin/sh\nexec ${python} -I -c 'import sys'\n`)
+    chmodSync(inner, 0o755)
+
+    const outer = join(root, 'local', 'bin', 'hermes')
+    mkdirSync(join(root, 'local', 'bin'), { recursive: true })
+    writeFileSync(outer, `#!/bin/sh\nexec ${inner} "$@"\n`)
+    chmodSync(outer, 0o755)
+
+    const env = resolveHermesInstallationEnvironment(outer, root, { PATH: '' })
+    expect(env.python).toBe(python)
+    expect(env.agentRoot).toBe(join(root, 'hermes-agent'))
+  })
+
   it('returns no python when the launcher target does not exist', () => {
     const root = sandbox()
     const launcher = join(root, 'bin', 'hermes')
