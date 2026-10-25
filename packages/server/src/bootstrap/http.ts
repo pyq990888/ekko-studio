@@ -15,6 +15,7 @@ import { setupKanbanEventsWebSocket } from '../modules/hermes/sockets/kanban-eve
 import { startVersionCheck } from './health'
 import { registerRoutes } from './routes'
 import './chat-agent-runtime-adapter'
+import './provider-runtime-adapter'
 import { setChatRunServer } from '../modules/studio/public/chat-run'
 import { ChatRunSocket } from '../modules/studio/sockets/chat-run'
 import { startChatWebhookDispatcher } from '../modules/studio/services/webhooks'
