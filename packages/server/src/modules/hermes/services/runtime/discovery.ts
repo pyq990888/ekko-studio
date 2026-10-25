@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { existsSync, realpathSync } from 'fs'
 import { homedir } from 'os'
-import { isAbsolute, join, resolve } from 'path'
+import { delimiter, isAbsolute, join, resolve } from 'path'
 import { promisify } from 'util'
 import { normalizeWindowsCommandPath } from '../../../studio/public/windows-command'
 import { resolveHermesInstallationEnvironment } from './installation'
@@ -107,11 +107,20 @@ export async function probeHermesCliVersion(
   }
 
   try {
+    // The launcher normally puts the Agent Root on sys.path before importing
+    // `hermes_cli`. Reproduce that here so the probe runs in the same import
+    // environment the real CLI would use.
+    const probeEnv = installation.agentRoot
+      ? {
+          ...env,
+          PYTHONPATH: [installation.agentRoot, env.PYTHONPATH].filter(Boolean).join(delimiter),
+        }
+      : env
     const { stdout } = await execFileAsync(installation.python, ['-c', HERMES_VERSION_PROBE], {
       encoding: 'utf8',
       timeout: 5000,
       windowsHide: true,
-      env,
+      env: probeEnv,
     })
     const version = normalizeVersion(String(stdout || ''))
     return version
